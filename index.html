@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<!-- ╔══════════════════════════════════════════════════════════╗
+     ║  SCRIPTORIUM v6 — CONFIGURAZIONE                        ║
+     ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
+     ╠══════════════════════════════════════════════════════════╣
+     ║  [1] URL del tuo GAS deployment                        ║
+     ║  [2] GAS_TOKEN segreto (da Script Properties)          ║
+     ║  Le chiavi AI vivono nel server, mai nel browser.      ║
+     ╚══════════════════════════════════════════════════════════╝ -->
+<script>
+// CFG viene popolato a runtime da localStorage — non ci sono credenziali nel sorgente.
+const CFG = { GAS_URL: '', GAS_TOKEN: '' };
+</script>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111009">
+<title>Scriptorium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ─────────────────────────────── */
+:root {
+  --bg:       #111009;
+  --surf:     #1c1a15;
+  --surf2:    #242118;
+  --surf3:    #2c2920;
+  --border:   #34301f;
+  --border2:  #4a4530;
+  --text:     #e0d8c0;
+  --dim:      #7a7060;
+  --faint:    #4a4535;
+  --accent:   #c8a84a;
+  --accent2:  #7a6428;
+  --danger:   #b85a5a;
+  --ok:       #5ab87a;
+  --ai:       #6a8cb8;
+  --ai2:      #3a5c88;
+  --ed-bg:    #0d0c0a;
+  --ed-fg:    #d8d0b8;
+  --add-bg:   rgba(90,184,122,.13);
+  --add-fg:   #6ecf90;
+  --rem-bg:   rgba(184,90,90,.13);
+  --rem-fg:   #cf7070;
+  --r:        4px;
+  --r2:       10px;
+  --bar-h:    50px;
+  --stat-h:   30px;
+  --sel-h:    44px;
+  --t:        160ms ease;
+  --safe-t:   env(safe-area-inset-top,    0px);
+  --safe-b:   env(safe-area-inset-bottom, 0px);
+  --safe-l:   env(safe-area-inset-left,   0px);
+  --safe-r:   env(safe-area-inset-right,  0px);
+}
+
+/* ── RESET ──────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { height: 100%; -webkit-text-size-adjust: 100%; }
+body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  font-family: 'Crimson Pro', Georgia, serif; font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+/* ── APP SHELL ──────────────────────────── */
+#app { display: flex; flex-direction: column; height: 100%; padding-top: var(--safe-t); }
+
+/* ── TOP BAR ─────────────────────────────── */
+#topbar {
+  height: var(--bar-h); background: var(--surf); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 10px 0 calc(10px + var(--safe-l));
+  gap: 2px; flex-shrink: 0; user-select: none; -webkit-user-select: none;
+}
+#logo { font-size: 11px; letter-spacing: .3em; text-transform: uppercase; color: var(--accent);
+  white-space: nowrap; margin-right: 8px; }
+.sp { flex: 1; }
+.vsep { width: 1px; height: 20px; background: var(--border); margin: 0 3px; flex-shrink: 0; }
+
+/* ── BUTTONS ─────────────────────────────── */
+button {
+  font-family: 'Crimson Pro', Georgia, serif;
+  background: transparent; border: 1px solid transparent; color: var(--dim);
+  padding: 5px 9px; border-radius: var(--r); cursor: pointer; font-size: 13.5px;
+  line-height: 1.3; white-space: nowrap; transition: all var(--t);
+  min-height: 36px; min-width: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  -webkit-appearance: none; touch-action: manipulation;
+}
+button:active { opacity: .65; }
+button:hover, button.on { color: var(--text); border-color: var(--border2); background: var(--surf2); }
+button.primary { background: var(--accent2); border-color: var(--accent); color: var(--accent); }
+button.primary:hover { background: var(--accent); color: var(--bg); }
+button.danger  { color: var(--danger); }
+button.danger:hover { border-color: var(--danger); background: rgba(184,90,90,.08); }
+button.ai-btn  { color: var(--ai); border-color: var(--ai2); background: rgba(106,140,184,.08); }
+button.ai-btn:hover { background: rgba(106,140,184,.18); }
+button.icon  { padding: 5px 8px; font-size: 16px; }
+button.sm    { font-size: 11.5px; padding: 3px 8px; min-height: 28px; }
+button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-family: 'JetBrains Mono', monospace; }
+
+/* ── STRIPS ──────────────────────────────── */
+.strip {
+  display: none; background: var(--surf2); border-bottom: 1px solid var(--border);
+  padding: 7px 12px; gap: 6px; align-items: center; flex-shrink: 0;
+}
+.strip.open { display: flex; }
+
+/* find */
+#find-strip { flex-wrap: wrap; }
+#fi-row, #rep-row { display: flex; gap: 5px; align-items: center; width: 100%; }
+.fi {
+  background: var(--ed-bg); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 10px; border-radius: var(--r); font-size: 16px;
+  font-family: 'Crimson Pro', Georgia, serif; outline: none; -webkit-appearance: none;
+  min-height: 38px; flex: 1; min-width: 80px; transition: border-color var(--t);
+}
+.fi:focus { border-color: var(--accent2); }
+.fi::placeholder { color: var(--faint); font-style: italic; }
+#fi-count { font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace; min-width: 52px; }
+#case-btn.on { border-color: var(--accent); color: var(--accent); }
+
+/* diff */
+#diff-strip { background: rgba(90,184,122,.05); border-bottom-color: rgba(90,184,122,.2); }
+#diff-label { font-size: 12px; color: var(--add-fg); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#diff-stats { font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+
+/* ── EDITOR ZONE ─────────────────────────── */
+#edit-zone { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+#editor {
+  flex: 1; width: 100%;
+  background: var(--ed-bg); color: var(--ed-fg);
+  font-family: 'Crimson Pro', Georgia, 'Times New Roman', serif;
+  font-size: 18px; line-height: 1.9; letter-spacing: .01em;
+  padding: 28px 18px; border: none; outline: none; resize: none;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  caret-color: var(--accent); -webkit-appearance: none;
+  word-break: break-word; white-space: pre-wrap;
+}
+#editor::selection { background: rgba(200,168,74,.22); }
+#editor::placeholder { color: var(--faint); font-style: italic; }
+
+#diff-view {
+  display: none; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 28px 18px; font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 17px; line-height: 1.9; white-space: pre-wrap; word-break: break-word;
+  background: var(--ed-bg);
+}
+#diff-view.open { display: block; }
+.da { background: var(--add-bg); color: var(--add-fg); display: block; }
+.dr { background: var(--rem-bg); color: var(--rem-fg); display: block; text-decoration: line-through; opacity: .75; }
+.de { color: var(--ed-fg); display: block; }
+.dp { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: .4; margin-right: 4px; }
+
+/* ── SELECTION BAR ───────────────────────── */
+#sel-bar {
+  display: none; height: var(--sel-h);
+  background: rgba(106,140,184,.08); border-top: 1px solid var(--ai2);
+  padding: 0 12px; gap: 6px; align-items: center; flex-shrink: 0;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap;
+}
+#sel-bar.open { display: flex; }
+#sel-preview {
+  font-size: 12px; color: var(--dim); font-style: italic;
+  max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
+}
+#sel-count { font-size: 11px; color: var(--faint); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+.sel-action { min-height: 32px; font-size: 12.5px; padding: 4px 10px; }
+
+/* ── STATUS BAR ──────────────────────────── */
+#statbar {
+  height: var(--stat-h); background: var(--surf); border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 12px; padding-bottom: var(--safe-b);
+  gap: 14px; flex-shrink: 0;
+  font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--faint);
+  overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch;
+}
+.st-k { text-transform: uppercase; margin-right: 2px; }
+.st-v { color: var(--dim); }
+#st-undo { cursor: pointer; }
+#st-undo:hover { color: var(--text); }
+#st-msg { margin-left: auto; flex-shrink: 0; transition: color var(--t); }
+#st-msg.ok   { color: var(--ok); }
+#st-msg.warn { color: var(--warn); }
+#st-msg.err  { color: var(--danger); }
+#st-msg.ai   { color: var(--ai); }
+
+/* ── BOTTOM BAR (mobile) ─────────────────── */
+#bottombar {
+  display: none; background: var(--surf); border-top: 1px solid var(--border);
+  padding: 6px 10px; padding-bottom: calc(6px + var(--safe-b));
+  gap: 2px; justify-content: space-around; flex-shrink: 0;
+}
+
+/* ── DRAWER OVERLAY ──────────────────────── */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.62); z-index: 100;
+}
+.overlay.open { display: block; }
+
+/* versions drawer */
+#drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(310px, 90vw);
+  background: var(--surf); border-left: 1px solid var(--border2);
+  display: flex; flex-direction: column; z-index: 101;
+  transform: translateX(100%);
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1);
+  padding-top: var(--safe-t); padding-right: var(--safe-r);
+}
+#drawer.open { transform: translateX(0); }
+#dr-head { padding: 13px 13px 11px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#dr-title { font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--accent); font-weight: 400; }
+#save-row { padding: 9px; border-bottom: 1px solid var(--border);
+  display: flex; gap: 5px; flex-shrink: 0; }
+#save-lbl {
+  flex: 1; background: var(--ed-bg); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 9px; border-radius: var(--r); font-size: 16px;
+  font-family: 'Crimson Pro', Georgia, serif; outline: none; -webkit-appearance: none; min-height: 40px;
+}
+#save-lbl:focus { border-color: var(--accent2); }
+#save-lbl::placeholder { color: var(--faint); font-style: italic; }
+#vlist { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 7px; }
+.vi { padding: 9px 11px; border-radius: var(--r); border: 1px solid transparent;
+  margin-bottom: 5px; }
+.vi:hover { border-color: var(--border2); background: var(--surf2); }
+.vi.auto { border-left: 2px solid var(--border2); }
+.vi-name { font-size: 13.5px; color: var(--text); line-height: 1.4; word-break: break-word; }
+.vi.auto .vi-name { color: var(--dim); font-style: italic; font-size: 12.5px; }
+.vi-meta { font-size: 10px; color: var(--faint); font-family: 'JetBrains Mono', monospace; margin-top: 3px; }
+.vi-btns { display: flex; gap: 4px; margin-top: 7px; flex-wrap: wrap; opacity: 0;
+  transition: opacity var(--t); }
+.vi:hover .vi-btns, .vi:focus-within .vi-btns { opacity: 1; }
+#empty-hint { padding: 30px 16px; text-align: center; color: var(--faint);
+  font-size: 13.5px; font-style: italic; line-height: 1.8; }
+#dr-warn { padding: 9px 12px; background: rgba(200,168,74,.06);
+  border-top: 1px solid rgba(200,168,74,.16);
+  font-size: 10.5px; color: var(--dim); line-height: 1.65; flex-shrink: 0; }
+
+/* ── SETTINGS PANEL ──────────────────────── */
+#settings-panel {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: min(340px, 92vw);
+  background: var(--surf); border-right: 1px solid var(--border2);
+  display: flex; flex-direction: column; z-index: 101;
+  transform: translateX(-100%);
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1);
+  padding-top: var(--safe-t); padding-left: var(--safe-l);
+}
+#settings-panel.open { transform: translateX(0); }
+#sp-head { padding: 13px 13px 11px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#sp-title { font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--ai); font-weight: 400; }
+#sp-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px; }
+.sp-section { margin-bottom: 20px; }
+.sp-label { font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--dim); margin-bottom: 7px; display: block; }
+.sp-input {
+  width: 100%; background: var(--ed-bg); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 11px; border-radius: var(--r); font-size: 16px;
+  font-family: 'JetBrains Mono', monospace; outline: none; -webkit-appearance: none;
+  transition: border-color var(--t); min-height: 42px;
+}
+.sp-input:focus { border-color: var(--ai2); }
+.sp-input::placeholder { color: var(--faint); font-style: italic; }
+.sp-textarea, #sp-gas-url, #sp-gas-token {
+  width: 100%; min-height: 130px; resize: vertical;
+  background: var(--ed-bg); border: 1px solid var(--border); color: var(--text);
+  padding: 10px 11px; border-radius: var(--r); font-size: 14px;
+  font-family: 'Crimson Pro', Georgia, serif; line-height: 1.7;
+  outline: none; -webkit-appearance: none; transition: border-color var(--t);
+}
+.sp-textarea:focus { border-color: var(--ai2); }
+.sp-textarea::placeholder { color: var(--faint); font-style: italic; }
+.sp-note { font-size: 11.5px; color: var(--faint); line-height: 1.6; margin-top: 6px; }
+.sp-select {
+  width: 100%; background: var(--ed-bg); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 11px; border-radius: var(--r); font-size: 15px;
+  font-family: 'Crimson Pro', Georgia, serif; outline: none; -webkit-appearance: none;
+  min-height: 42px; cursor: pointer;
+}
+.sp-select:focus { border-color: var(--ai2); }
+.sp-row { display: flex; gap: 6px; margin-top: 10px; }
+#sp-foot { padding: 10px 14px; border-top: 1px solid var(--border);
+  display: flex; gap: 7px; flex-shrink: 0; }
+#sp-foot button { flex: 1; }
+
+/* ── AI BOTTOM SHEET ─────────────────────── */
+#ai-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.55); z-index: 150;
+}
+#ai-overlay.open { display: block; }
+
+#ai-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surf); border-top: 1px solid var(--border2);
+  border-radius: 14px 14px 0 0;
+  z-index: 151; display: flex; flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 280ms cubic-bezier(.2,.8,.2,1);
+  max-height: 82vh;
+  padding-bottom: var(--safe-b);
+}
+#ai-sheet.open { transform: translateY(0); }
+#ai-handle { height: 4px; width: 44px; border-radius: 2px;
+  background: var(--border2); margin: 10px auto 2px; flex-shrink: 0; }
+#ai-head { padding: 8px 14px 10px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0; }
+#ai-context-label { font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ai); margin-bottom: 5px; }
+#ai-context-text {
+  font-size: 13px; color: var(--dim); font-style: italic;
+  max-height: 42px; overflow: hidden; line-height: 1.55;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+#ai-actions { padding: 9px 10px; border-bottom: 1px solid var(--border);
+  display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+#ai-actions button { min-height: 38px; font-size: 13.5px; }
+
+#ai-result {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 14px 16px; min-height: 80px;
+  font-size: 15.5px; line-height: 1.8; color: var(--text);
+  font-family: 'Crimson Pro', Georgia, serif;
+}
+#ai-result.loading { display: flex; align-items: center; justify-content: center; }
+#ai-spinner {
+  display: none; width: 28px; height: 28px;
+  border: 2px solid var(--border2); border-top-color: var(--ai);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#ai-result.loading #ai-spinner { display: block; }
+#ai-result-text { white-space: pre-wrap; word-break: break-word; }
+.ai-variant { border-left: 2px solid var(--ai2); padding-left: 10px; margin-bottom: 10px;
+  color: var(--ed-fg); }
+.ai-variant-n { font-size: 10px; color: var(--ai); font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 3px; letter-spacing: .1em; text-transform: uppercase; }
+
+#ai-foot { padding: 9px 10px; border-top: 1px solid var(--border);
+  display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+#ai-foot button { min-height: 38px; font-size: 13px; flex: 1; }
+
+/* ── MODAL ───────────────────────────────── */
+#modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.72); z-index: 200;
+  align-items: flex-end; justify-content: center; padding: 0;
+}
+#modal-overlay.open { display: flex; }
+#modal {
+  background: var(--surf); border-top: 1px solid var(--border2);
+  border-radius: 14px 14px 0 0;
+  padding: 20px 20px calc(18px + var(--safe-b));
+  width: 100%; max-width: 540px; max-height: 78vh;
+  display: flex; flex-direction: column;
+}
+#modal-title { font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px; flex-shrink: 0; }
+#modal-body { font-size: 15px; color: var(--dim); line-height: 1.72; overflow-y: auto; flex: 1; }
+#modal-body pre {
+  background: var(--ed-bg); padding: 12px; border-radius: var(--r);
+  font-family: 'Crimson Pro', Georgia, serif; font-size: 14px; line-height: 1.8;
+  overflow-y: auto; max-height: 220px; color: var(--ed-fg);
+  white-space: pre-wrap; word-break: break-word; margin-top: 8px; }
+#modal-body p { margin-bottom: 6px; }
+#modal-body strong { color: var(--text); }
+#modal-footer { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;
+  flex-wrap: wrap; flex-shrink: 0; }
+
+#file-input { display: none; }
+
+/* ── RESPONSIVE ──────────────────────────── */
+@media (max-width: 660px) {
+  #topbar .tb-desk { display: none; }
+  #bottombar { display: flex; }
+  #statbar .st-read { display: none; }
+  #editor { padding: 20px 14px; }
+}
+@media (min-width: 661px) {
+  #topbar .tb-mob { display: none; }
+  #bottombar { display: none; }
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── TOP BAR ── -->
+<div id="topbar">
+  <span id="logo">Script</span>
+  <div class="vsep tb-desk"></div>
+
+  <!-- Desktop -->
+  <button class="tb-desk" onclick="App.importFile()" title="Importa .txt / .md">↑ Importa</button>
+  <button class="tb-desk" onclick="App.exportTxt()" title="Esporta .txt locale">↓ Locale</button>
+  <button class="tb-desk" onclick="App.driveMenu()" id="btn-drive-desk" title="Drive — Salva / Carica">☁ Drive ▾</button>
+  <button class="tb-desk" onclick="App.copyAll()">⎘ Copia</button>
+  <div class="vsep tb-desk"></div>
+  <button class="tb-desk" onclick="App.undo()" title="Annulla (Ctrl+Z)">↩</button>
+  <button class="tb-desk" onclick="App.redo()" title="Ripeti (Ctrl+Y)">↪</button>
+  <div class="vsep tb-desk"></div>
+  <button class="tb-desk" onclick="App.toggleFind()">⌕ Cerca</button>
+  <div class="vsep tb-desk"></div>
+  <button class="tb-desk" id="btn-diff-close" style="display:none" onclick="App.closeDiff()">✕ Confronto</button>
+
+  <div class="sp"></div>
+
+  <!-- Mobile -->
+  <button class="icon tb-mob" onclick="App.importFile()">↑</button>
+  <button class="icon tb-mob" onclick="App.exportTxt()" title="Locale">↓</button>
+  <button class="icon tb-mob" onclick="App.driveMenu()" id="btn-drive-mob" title="Drive — Salva / Carica">☁</button>
+  <button class="icon tb-mob" onclick="App.undo()">↩</button>
+  <button class="icon tb-mob" onclick="App.toggleFind()">⌕</button>
+  <button class="icon tb-mob" id="btn-dc-mob" style="display:none" onclick="App.closeDiff()">✗</button>
+
+  <!-- Always -->
+  <button class="icon" onclick="App.openSettings()" title="Impostazioni Groq">⚙</button>
+  <button class="icon" onclick="App.openDrawer()" title="Versioni">⊞</button>
+</div>
+
+<input type="file" id="file-input" accept=".txt,.md,.env" onchange="App.onFileSelect(event)">
+
+<!-- ── FIND STRIP ── -->
+<div id="find-strip" class="strip">
+  <div id="fi-row">
+    <input class="fi" id="fi-query" type="search" placeholder="Cerca…"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      oninput="App.onFindInput()" onkeydown="App.onFindKey(event)">
+    <button id="case-btn" onclick="App.toggleCase()" title="Maiuscole/Minuscole">Aa</button>
+    <button class="icon" onclick="App.findPrev()">↑</button>
+    <button class="icon" onclick="App.findNext()">↓</button>
+    <span id="fi-count"></span>
+    <button class="icon" onclick="App.closeFind()">✕</button>
+  </div>
+  <div id="rep-row">
+    <input class="fi" id="fi-replace" type="text" placeholder="Sostituisci con…"
+      autocomplete="off" autocorrect="off" autocapitalize="off"
+      onkeydown="App.onReplaceKey(event)">
+    <button onclick="App.replaceOne()">Una</button>
+    <button onclick="App.replaceAll()">Tutte</button>
+  </div>
+</div>
+
+<!-- ── DIFF STRIP ── -->
+<div id="diff-strip" class="strip">
+  <span id="diff-label">—</span>
+  <span id="diff-stats"></span>
+  <button class="primary sm-mono" onclick="App.restoreFromDiff()">↩ Ripristina</button>
+</div>
+
+<!-- ── EDITOR ZONE ── -->
+<div id="edit-zone">
+  <textarea id="editor"
+    spellcheck="true" autocorrect="on" autocapitalize="sentences"
+    placeholder="Comincia a scrivere.&#10;Seleziona una parola o frase per chiedere aiuto all'AI."
+    oninput="App.onInput()"
+    onkeydown="App.onEditorKey(event)"
+    onmouseup="App.onSelUp()" ontouchend="App.onSelUp()"
+    onselect="App.onSelUp()" onkeyup="App.onSelUp()"
+  ></textarea>
+  <div id="diff-view"></div>
+</div>
+
+<!-- ── SELECTION BAR ── -->
+<div id="sel-bar">
+  <span id="sel-preview"></span>
+  <span id="sel-count"></span>
+  <div style="flex:1"></div>
+  <button class="sel-action ai-btn" onclick="App.aiAction('sinonimi')">Sinonimi</button>
+  <button class="sel-action ai-btn" onclick="App.aiAction('contrari')">Contrari</button>
+  <button class="sel-action ai-btn" onclick="App.aiAction('riformula')">Riformula</button>
+  <button class="sel-action ai-btn" onclick="App.aiAction('valuta')">Valuta</button>
+</div>
+
+<!-- ── STATUS BAR ── -->
+<div id="statbar">
+  <span><span class="st-k">Par.</span><span class="st-v" id="st-words">0</span></span>
+  <span><span class="st-k">Car.</span><span class="st-v" id="st-chars">0</span></span>
+  <span><span class="st-k">§</span><span class="st-v" id="st-para">0</span></span>
+  <span class="st-read"><span class="st-k">Lettura</span><span class="st-v" id="st-read">—</span></span>
+  <span id="st-undo" onclick="App.undo()" title="Annullabili"><span class="st-k">Undo</span><span class="st-v" id="st-undo-n">0</span></span>
+  <span id="st-msg">—</span>
+</div>
+
+<!-- ── BOTTOM BAR (mobile) ── -->
+<div id="bottombar">
+  <button class="icon" onclick="App.copyAll()">⎘</button>
+  <button class="icon" onclick="App.undo()">↩</button>
+  <button class="icon" onclick="App.saveSnapshot()">◉</button>
+  <button class="icon" onclick="App.openSettings()">⚙</button>
+  <button class="icon" onclick="App.openDrawer()">☰</button>
+</div>
+
+</div><!-- /app -->
+
+<!-- ── VERSIONS DRAWER ── -->
+<div class="overlay" id="drawer-overlay" onclick="App.closeDrawer()"></div>
+<div id="drawer">
+  <div id="dr-head">
+    <span id="dr-title">Versioni</span>
+    <div style="display:flex;gap:5px">
+      <button class="sm" onclick="App.clearAll()">Svuota</button>
+      <button class="sm" onclick="App.closeDrawer()">✕</button>
+    </div>
+  </div>
+  <div id="save-row">
+    <input type="text" id="save-lbl" placeholder="Etichetta versione…" maxlength="64"
+      onkeydown="App.onSaveLblKey(event)">
+    <button class="primary" onclick="App.saveSnapshot()">Salva</button>
+  </div>
+  <div id="drive-row" style="padding:7px 9px;border-bottom:1px solid var(--border);display:flex;gap:5px;flex-shrink:0">
+    <button class="sm ai-btn" style="flex:1" onclick="App.exportToDrive()">☁ Salva Drive</button>
+    <button class="sm" style="flex:1" onclick="App.loadFromDrive()">☁ Carica Drive</button>
+  </div>
+  <div id="vlist"></div>
+  <div id="dr-warn">⚠ Versioni locali = solo questo browser. Usa ☁ Drive per backup permanenti.</div>
+</div>
+
+<!-- ── SETTINGS PANEL ── -->
+<div class="overlay" id="settings-overlay" onclick="App.closeSettings()"></div>
+<div id="settings-panel">
+  <div id="sp-head">
+    <span id="sp-title">⚙ Impostazioni AI</span>
+    <button class="sm" onclick="App.closeSettings()">✕</button>
+  </div>
+  <div id="sp-body">
+
+    <div class="sp-section">
+      <label class="sp-label">Provider e Modello AI</label>
+      <select class="sp-select" id="sp-model">
+        <optgroup label="Groq">
+          <option value="groq|llama-3.3-70b-versatile">LLaMA 3.3 70B — qualità massima</option>
+          <option value="groq|llama-3.1-8b-instant">LLaMA 3.1 8B — velocissimo</option>
+          <option value="groq|mixtral-8x7b-32768">Mixtral 8x7B — equilibrato</option>
+        </optgroup>
+        <optgroup label="Mistral">
+          <option value="mistral|mistral-medium-latest">Mistral Medium — qualità alta</option>
+          <option value="mistral|mistral-small-latest">Mistral Small — veloce</option>
+        </optgroup>
+      </select>
+      <p class="sp-note">Le chiavi API vivono nel server GAS, non qui. Sicuro su qualsiasi dispositivo.</p>
+    </div>
+
+    <div class="sp-section">
+      <label class="sp-label">Prompt di sistema</label>
+      <textarea class="sp-textarea" id="sp-sysprompt"
+        placeholder="Sei un assistente editoriale esperto di italiano letterario. Rispondi in italiano, in modo preciso e conciso. Preserva il registro e il tono dell'autore."
+        autocorrect="off" autocapitalize="off"></textarea>
+      <p class="sp-note">Questo testo precede ogni richiesta a Groq. Il campo usa un default editoriale se lasciato vuoto.</p>
+    </div>
+
+    <div class="sp-section">
+      <label class="sp-label">Temperatura</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="range" id="sp-temp" min="0" max="100" value="60" style="flex:1;accent-color:var(--ai)">
+        <span id="sp-temp-val" style="font-family:var(--f-mono,monospace);font-size:12px;color:var(--dim);min-width:28px">0.6</span>
+      </div>
+      <p class="sp-note">Bassa = preciso e conservativo. Alta = creativo e variato.</p>
+    </div>
+
+    <div class="sp-section">
+      <label class="sp-label">Server GAS — URL</label>
+      <input type="url" id="sp-gas-url" class="sp-textarea"
+        placeholder="https://script.google.com/macros/s/…/exec"
+        autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false"
+        style="width:100%;font-family:monospace;font-size:12px;padding:8px 10px;resize:none;height:auto">
+      <p class="sp-note">URL del deployment GAS. Incollalo qui — non finirà mai nel sorgente.</p>
+    </div>
+
+    <div class="sp-section">
+      <label class="sp-label">Server GAS — Token segreto</label>
+      <input type="password" id="sp-gas-token" class="sp-textarea"
+        placeholder="il tuo GAS_TOKEN"
+        autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false"
+        style="width:100%;font-family:monospace;font-size:13px;padding:8px 10px;resize:none;height:auto">
+      <p class="sp-note">Stesso valore di GAS_TOKEN nelle Script Properties. Salvato solo nel localStorage di questo browser.</p>
+    </div>
+
+    <div class="sp-section">
+      <label class="sp-label" style="color:var(--faint)">Connessione Server</label>
+      <button class="sm" onclick="App.testGAS()" style="width:100%">Testa connessione</button>
+      <p class="sp-note" id="sp-gas-status">Inserisci URL e Token qui sopra, poi premi Salva.</p>
+    </div>
+
+  </div>
+  <div id="sp-foot">
+    <button onclick="App.closeSettings()">Annulla</button>
+    <button class="primary" onclick="App.saveSettings()">Salva impostazioni</button>
+  </div>
+</div>
+
+<!-- ── AI BOTTOM SHEET ── -->
+<div id="ai-overlay" onclick="App.closeAI()"></div>
+<div id="ai-sheet">
+  <div id="ai-handle"></div>
+  <div id="ai-head">
+    <div id="ai-context-label">AI — testo selezionato</div>
+    <div id="ai-context-text"></div>
+  </div>
+  <div id="ai-actions">
+    <button class="ai-btn" onclick="App.aiAction('sinonimi')">Sinonimi</button>
+    <button class="ai-btn" onclick="App.aiAction('contrari')">Contrari</button>
+    <button class="ai-btn" onclick="App.aiAction('riformula')">Riformula</button>
+    <button class="ai-btn" onclick="App.aiAction('valuta')">Valuta periodo</button>
+  </div>
+  <div id="ai-result">
+    <div id="ai-spinner"></div>
+    <div id="ai-result-text"></div>
+  </div>
+  <div id="ai-foot">
+    <button onclick="App.aiReplace()" id="ai-btn-replace">↩ Sostituisci</button>
+    <button onclick="App.aiInsertAfter()" id="ai-btn-insert">+ Inserisci dopo</button>
+    <button onclick="App.aiCopy()">⎘ Copia</button>
+    <button onclick="App.closeAI()">✕</button>
+  </div>
+</div>
+
+<!-- ── MODAL ── -->
+<div id="modal-overlay" onclick="App.closeModal()">
+  <div id="modal" onclick="event.stopPropagation()">
+    <div id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div id="modal-footer"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════════
+   GAS CLIENT — inline per mantenere il file auto-contenuto
+   ══════════════════════════════════════════════════════ */
+class GasClient {
+  constructor(url, token) { this._url = url; this._token = token; }
+  async call(action, payload = {}) {
+    const body = JSON.stringify({ token: this._token, action, payload });
+    try {
+      const res = await fetch(this._url, {
+        method : 'POST', body,
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (e) {
+      return { ok: false, error: `Errore di rete: ${e.message}` };
+    }
+  }
+  ping()                         { return this.call('system.ping'); }
+  ai(messages, opts = {})        { return this.call('ai.complete', { messages, ...opts }); }
+  scriptorium_save(text, label)  { return this.call('scriptorium.save', { text, label }); }
+  scriptorium_list()             { return this.call('scriptorium.list'); }
+  scriptorium_load(fileId)       { return this.call('scriptorium.load', { fileId }); }
+}
+
+
+/* ── HELPERS ────────────────────────────── */
+const $  = id => document.getElementById(id);
+const pad = n  => String(n).padStart(2,'0');
+const wc  = t  => t.trim() ? t.trim().split(/\s+/).length : 0;
+const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const fmtDate = iso => {
+  const d = new Date(iso);
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const trunc = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
+const isIOS = () => /iP(hone|od|ad)/.test(navigator.userAgent);
+const _gasOk = () => CFG.GAS_URL && CFG.GAS_URL !== '__GAS_URL__' && CFG.GAS_TOKEN && CFG.GAS_TOKEN !== '__GAS_TOKEN__';
+
+/* ── APP ─────────────────────────────────── */
+const App = {
+
+  /* state */
+  text:          '',
+  versions:      [],
+  undoStack:     [],
+  undoPtr:       -1,
+  selText:       '',
+  selStart:      0,
+  selEnd:        0,
+  aiLastResult:  '',
+  caseSensitive: false,
+  findMatches:   [],
+  findIdx:       0,
+  diffId:        null,
+  modalCbs:      [],
+  pendingId:     null,
+  autoTimer:     null,
+  undoTimer:     null,
+  gas:           null,
+
+  /* config */
+  K_TEXT:    'scr3:text',
+  K_VERS:    'scr3:vers',
+  K_SYSPROMPT:'scr3:sysprompt',
+  K_MODEL:   'scr3:model',
+  K_TEMP:    'scr3:temp',
+  K_GAS_URL: 'scr3:gas_url',
+  K_GAS_TOK: 'scr3:gas_token',
+  MAX_V:     60,
+  MAX_AUTO:  4,
+  MAX_UNDO:  25,
+  DEF_PROMPT:'Sei un assistente editoriale esperto di italiano letterario. Rispondi sempre in italiano, in modo preciso e conciso. Preserva il registro e il tono originale dell\'autore.',
+
+  /* ── INIT ──────────────────────────────── */
+  init() {
+    // Carica credenziali GAS da localStorage (mai nel sorgente)
+    CFG.GAS_URL   = localStorage.getItem('scr3:gas_url')   || '';
+    CFG.GAS_TOKEN = localStorage.getItem('scr3:gas_token') || '';
+    if (_gasOk()) {
+      this.gas = new GasClient(CFG.GAS_URL, CFG.GAS_TOKEN);
+    }
+    this.load();
+    this.renderList();
+    this.updateStats();
+    this.loadSettings();
+    this.resetAutoTimer();
+
+    // push initial undo state
+    this._pushUndo(this.text);
+
+    document.addEventListener('keydown', e => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key==='z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
+      if (mod && (e.key==='y' || (e.key==='z' && e.shiftKey))) { e.preventDefault(); this.redo(); }
+      if (mod && e.key==='f') { e.preventDefault(); this.toggleFind(); }
+      if (mod && e.key==='s') { e.preventDefault(); this.saveSnapshot(); }
+      if (e.key==='Escape') {
+        this.closeFind(); this.closeModal(); this.closeDrawer(); this.closeSettings();
+        if ($('ai-sheet').classList.contains('open')) this.closeAI();
+      }
+    });
+
+    // temperature slider
+    $('sp-temp').addEventListener('input', () => {
+      $('sp-temp-val').textContent = (parseInt($('sp-temp').value)/100).toFixed(1);
+    });
+
+    // iOS: persist on hide
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') this.persist();
+    });
+    window.addEventListener('pagehide', () => this.persist());
+    window.addEventListener('beforeunload', () => this.persist());
+  },
+
+  /* ── STORAGE ────────────────────────────── */
+  load() {
+    try {
+      this.text     = localStorage.getItem(this.K_TEXT) || '';
+      this.versions = JSON.parse(localStorage.getItem(this.K_VERS) || '[]');
+      $('editor').value = this.text;
+    } catch(_) { this.msg('Errore caricamento', 'err'); }
+  },
+
+  persist() {
+    try {
+      localStorage.setItem(this.K_TEXT, this.text);
+      localStorage.setItem(this.K_VERS, JSON.stringify(this.versions));
+    } catch(_) { this.msg('Storage pieno — esporta!', 'err'); }
+  },
+
+  loadSettings() {
+    const sysp  = localStorage.getItem(this.K_SYSPROMPT)|| '';
+    const model = localStorage.getItem(this.K_MODEL)    || 'groq|llama-3.3-70b-versatile';
+    const temp  = localStorage.getItem(this.K_TEMP)     || '60';
+    $('sp-sysprompt').value = sysp;
+    $('sp-model').value     = model;
+    $('sp-temp').value      = temp;
+    $('sp-temp-val').textContent = (parseInt(temp)/100).toFixed(1);
+    // GAS credentials
+    $('sp-gas-url').value   = localStorage.getItem(this.K_GAS_URL) || '';
+    $('sp-gas-token').value = localStorage.getItem(this.K_GAS_TOK) || '';
+  },
+
+  saveSettings() {
+    localStorage.setItem(this.K_SYSPROMPT, $('sp-sysprompt').value.trim());
+    localStorage.setItem(this.K_MODEL,     $('sp-model').value);
+    localStorage.setItem(this.K_TEMP,      $('sp-temp').value);
+    // Salva GAS credentials e aggiorna CFG + GasClient al volo
+    const gasUrl = $('sp-gas-url').value.trim();
+    const gasTok = $('sp-gas-token').value.trim();
+    localStorage.setItem(this.K_GAS_URL, gasUrl);
+    localStorage.setItem(this.K_GAS_TOK, gasTok);
+    CFG.GAS_URL   = gasUrl;
+    CFG.GAS_TOKEN = gasTok;
+    this.gas = _gasOk() ? new GasClient(CFG.GAS_URL, CFG.GAS_TOKEN) : null;
+    this.msg('Impostazioni salvate ✓', 'ok');
+    setTimeout(() => this.msg('—', ''), 2500);
+    this.closeSettings();
+  },
+
+  /* ── TEST GAS ───────────────────────────── */
+  async testGAS() {
+    if (!_gasOk()) {
+      const el = document.getElementById('sp-gas-status');
+      el.textContent = '⚠ GAS_URL o GAS_TOKEN non configurati nel blocco CFG.';
+      el.style.color = 'var(--danger)'; return;
+    }
+    const el = document.getElementById('sp-gas-status');
+    el.textContent = 'Connessione in corso…'; el.style.color = 'var(--ai)';
+    const res = await this.gas.ping();
+    if (res.ok) {
+      el.textContent = '✓ Server raggiunto — ' + (res.data?.ts || '');
+      el.style.color = 'var(--ok)';
+    } else {
+      el.textContent = '⚠ ' + (res.error || 'Errore sconosciuto');
+      el.style.color = 'var(--danger)';
+    }
+  },
+
+  /* ── EDITOR INPUT ───────────────────────── */
+  onInput() {
+    this.text = $('editor').value;
+    this.updateStats();
+    this.persist();
+    this.resetAutoTimer();
+    this._scheduleUndo();
+    this.msg('…', '');
+  },
+
+  onEditorKey(e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const ta = e.target, s = ta.selectionStart, en = ta.selectionEnd;
+      ta.value = ta.value.slice(0,s) + '    ' + ta.value.slice(en);
+      ta.selectionStart = ta.selectionEnd = s + 4;
+      this.onInput();
+    }
+  },
+
+  updateStats() {
+    const t = this.text;
+    const words = t.trim() ? t.trim().split(/\s+/).length : 0;
+    const chars  = t.length;
+    const paras  = t.trim() ? t.split(/\n\s*\n/).filter(p=>p.trim()).length : 0;
+    const mins   = words > 0 ? `~${Math.max(1,Math.ceil(words/200))} min` : '—';
+    $('st-words').textContent = words.toLocaleString('it');
+    $('st-chars').textContent = chars.toLocaleString('it');
+    $('st-para').textContent  = paras;
+    $('st-read').textContent  = mins;
+    $('st-undo-n').textContent = this.undoPtr;
+  },
+
+  /* ── UNDO / REDO ────────────────────────── */
+  _scheduleUndo() {
+    clearTimeout(this.undoTimer);
+    this.undoTimer = setTimeout(() => this._pushUndo(this.text), 600);
+  },
+
+  _pushUndo(text) {
+    // discard any states ahead of pointer (redo history)
+    this.undoStack = this.undoStack.slice(0, this.undoPtr + 1);
+    // avoid duplicate of current
+    if (this.undoStack.length && this.undoStack[this.undoStack.length-1] === text) return;
+    this.undoStack.push(text);
+    if (this.undoStack.length > this.MAX_UNDO)
+      this.undoStack.shift();
+    this.undoPtr = this.undoStack.length - 1;
+    this.updateStats();
+  },
+
+  undo() {
+    if (this.undoPtr <= 0) { this.msg('Nulla da annullare', 'warn'); return; }
+    this.undoPtr--;
+    this.text = this.undoStack[this.undoPtr];
+    $('editor').value = this.text;
+    this.persist(); this.updateStats();
+    this.msg(`annullato (${this.undoPtr}/${this.undoStack.length-1})`, 'ok');
+    setTimeout(() => this.msg('—', ''), 2000);
+  },
+
+  redo() {
+    if (this.undoPtr >= this.undoStack.length - 1) { this.msg('Nulla da ripetere', 'warn'); return; }
+    this.undoPtr++;
+    this.text = this.undoStack[this.undoPtr];
+    $('editor').value = this.text;
+    this.persist(); this.updateStats();
+    this.msg('ripetuto', 'ok');
+    setTimeout(() => this.msg('—', ''), 2000);
+  },
+
+  /* ── AUTO-SAVE ──────────────────────────── */
+  resetAutoTimer() {
+    clearTimeout(this.autoTimer);
+    this.autoTimer = setTimeout(() => this.doAuto(), 90_000);
+  },
+  doAuto() {
+    if (!this.text.trim()) { this.resetAutoTimer(); return; }
+    this._push('Auto ' + this._autoLabel(), true);
+    this.msg('autosalvato', 'ok');
+    setTimeout(() => this.msg('—', ''), 3000);
+    this.resetAutoTimer();
+  },
+
+  /* ── SNAPSHOTS ──────────────────────────── */
+  saveSnapshot() {
+    if (!this.text.trim()) { this.msg('testo vuoto', 'warn'); return; }
+    const inp   = $('save-lbl');
+    const label = inp.value.trim() || this._autoLabel();
+    this._push(label, false);
+    inp.value = '';
+    this.msg(`"${label}" salvata`, 'ok');
+    setTimeout(() => this.msg('—', ''), 3000);
+  },
+
+  _autoLabel() {
+    const d = new Date();
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  },
+
+  _push(label, auto) {
+    const v = { id: uid(), label, text: this.text, ts: new Date().toISOString(), wc: wc(this.text), auto };
+    this.versions.unshift(v);
+    const autos = this.versions.filter(x=>x.auto);
+    if (autos.length > this.MAX_AUTO) {
+      const rm = new Set(autos.slice(this.MAX_AUTO).map(x=>x.id));
+      this.versions = this.versions.filter(x=>!rm.has(x.id));
+    }
+    if (this.versions.length > this.MAX_V) this.versions = this.versions.slice(0, this.MAX_V);
+    this.persist(); this.renderList();
+  },
+
+  restore(id) {
+    const v = this.versions.find(x=>x.id===id); if (!v) return;
+    this.pendingId = id;
+    this.showModal('Ripristina versione', `
+      <p>Versione: <strong>${esc(v.label)}</strong></p>
+      <p style="margin-top:8px;font-size:13px">Il testo corrente sarà salvato automaticamente prima del ripristino.</p>
+    `, [
+      { label: 'Annulla', cb: () => this.closeModal() },
+      { label: '↩ Ripristina', primary: true, cb: () => {
+        const vv = this.versions.find(x=>x.id===this.pendingId);
+        if (!vv) { this.closeModal(); return; }
+        if (this.text.trim()) this._push('Prima del ripristino', false);
+        this.text = vv.text;
+        $('editor').value = this.text;
+        this._pushUndo(this.text);
+        this.persist(); this.updateStats(); this.closeDiff();
+        this.closeModal(); this.closeDrawer();
+        this.msg('ripristinato', 'ok');
+        setTimeout(() => this.msg('—', ''), 3000);
+      }}
+    ]);
+  },
+
+  deleteV(id) {
+    const v = this.versions.find(x=>x.id===id); if (!v) return;
+    this.pendingId = id;
+    this.showModal('Elimina', `<p>Eliminare: <strong style="color:var(--danger)">${esc(v.label)}</strong>?</p>`, [
+      { label: 'Annulla', cb: () => this.closeModal() },
+      { label: 'Elimina', danger: true, cb: () => {
+        this.versions = this.versions.filter(x=>x.id!==this.pendingId);
+        this.persist(); this.renderList(); this.closeModal();
+      }}
+    ]);
+  },
+
+  preview(id) {
+    const v = this.versions.find(x=>x.id===id); if (!v) return;
+    const snip = v.text.length > 1400 ? v.text.slice(0,1400)+'\n…' : v.text;
+    this.showModal(v.label, `
+      <p style="font-size:11px;font-family:monospace;color:var(--faint)">${fmtDate(v.ts)} · ${v.wc.toLocaleString('it')} parole</p>
+      <pre>${esc(snip)}</pre>
+    `, [
+      { label: 'Chiudi', cb: () => this.closeModal() },
+      { label: '≠ Confronta', cb: () => { this.closeModal(); this.closeDrawer(); this.showDiff(id); } },
+      { label: '↩ Ripristina', primary: true, cb: () => { this.closeModal(); this.restore(id); } },
+    ]);
+  },
+
+  clearAll() {
+    if (!this.versions.length) return;
+    this.showModal('Svuota cronologia', `<p>Eliminare tutte le <strong>${this.versions.length}</strong> versioni?</p>`, [
+      { label: 'Annulla', cb: () => this.closeModal() },
+      { label: 'Svuota tutto', danger: true, cb: () => {
+        this.versions = []; this.persist(); this.renderList(); this.closeModal();
+      }}
+    ]);
+  },
+
+  /* ── DIFF ───────────────────────────────── */
+  showDiff(id) {
+    const v = this.versions.find(x=>x.id===id); if (!v) return;
+    this.diffId = id;
+    const diff = computeDiff(v.text, this.text);
+    const adds = diff.filter(d=>d.t==='+').length;
+    const rems = diff.filter(d=>d.t==='-').length;
+    const html = diff.map(d => {
+      const cls = d.t==='+'?'da':d.t==='-'?'dr':'de';
+      const pfx = d.t==='+'?'＋':d.t==='-'?'－':' ';
+      return `<span class="${cls}"><span class="dp">${pfx}</span>${esc(d.s)}</span>`;
+    }).join('');
+    $('diff-view').innerHTML = html;
+    $('diff-view').classList.add('open');
+    $('editor').style.display = 'none';
+    $('diff-strip').classList.add('open');
+    $('btn-diff-close').style.display = '';
+    $('btn-dc-mob').style.display = '';
+    $('diff-label').textContent = `${v.label} — ${fmtDate(v.ts)}`;
+    $('diff-stats').textContent = `+${adds} −${rems}`;
+  },
+  restoreFromDiff() { if (this.diffId) this.restore(this.diffId); },
+  closeDiff() {
+    this.diffId = null;
+    $('diff-view').classList.remove('open'); $('diff-view').innerHTML = '';
+    $('editor').style.display = '';
+    $('diff-strip').classList.remove('open');
+    $('btn-diff-close').style.display = 'none';
+    $('btn-dc-mob').style.display = 'none';
+  },
+
+  /* ── FIND / REPLACE ─────────────────────── */
+  toggleFind() {
+    const bar = $('find-strip');
+    if (bar.classList.contains('open')) this.closeFind();
+    else { bar.classList.add('open'); $('fi-query').focus(); }
+  },
+  closeFind() {
+    $('find-strip').classList.remove('open');
+    $('fi-count').textContent = ''; this.findMatches = []; this.findIdx = 0;
+  },
+  toggleCase() {
+    this.caseSensitive = !this.caseSensitive;
+    $('case-btn').classList.toggle('on', this.caseSensitive);
+    this.onFindInput();
+  },
+  onFindInput()   { this._calcMatches(); if (this.findMatches.length) { this.findIdx=0; this._sel(0); } },
+  onFindKey(e)    { if (e.key==='Enter') { e.shiftKey?this.findPrev():this.findNext(); } if(e.key==='Escape') this.closeFind(); },
+  onReplaceKey(e) { if (e.key==='Enter') this.replaceOne(); },
+  onSaveLblKey(e) { if (e.key==='Enter') { e.preventDefault(); this.saveSnapshot(); } },
+
+  _calcMatches() {
+    const q = $('fi-query').value; this.findMatches = [];
+    if (!q) { $('fi-count').textContent=''; return; }
+    const flags = this.caseSensitive?'g':'gi';
+    try {
+      const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), flags); let m;
+      while ((m=rx.exec(this.text))!==null) this.findMatches.push({s:m.index,e:m.index+m[0].length});
+    } catch(_) {}
+    const n = this.findMatches.length;
+    $('fi-count').textContent = n ? `${this.findIdx+1}/${n}` : '—';
+  },
+  _sel(i) {
+    if (!this.findMatches.length) return;
+    const m = this.findMatches[i], ta = $('editor');
+    ta.focus(); ta.setSelectionRange(m.s, m.e);
+    const lh = parseFloat(getComputedStyle(ta).lineHeight)||32;
+    const line = (this.text.slice(0,m.s).match(/\n/g)||[]).length;
+    ta.scrollTop = line*lh - ta.clientHeight/3;
+    $('fi-count').textContent = `${i+1}/${this.findMatches.length}`;
+  },
+  findNext() { this._calcMatches(); if(!this.findMatches.length) return; this.findIdx=(this.findIdx+1)%this.findMatches.length; this._sel(this.findIdx); },
+  findPrev() { this._calcMatches(); if(!this.findMatches.length) return; this.findIdx=(this.findIdx-1+this.findMatches.length)%this.findMatches.length; this._sel(this.findIdx); },
+  replaceOne() {
+    this._calcMatches(); if(!this.findMatches.length) return;
+    const m=this.findMatches[this.findIdx], rep=$('fi-replace').value;
+    this.text=this.text.slice(0,m.s)+rep+this.text.slice(m.e);
+    $('editor').value=this.text; this.persist(); this.updateStats();
+    this._calcMatches();
+    if(this.findMatches.length){this.findIdx=Math.min(this.findIdx,this.findMatches.length-1);this._sel(this.findIdx);}
+  },
+  replaceAll() {
+    const q=$('fi-query').value, rep=$('fi-replace').value; if(!q) return;
+    const flags=this.caseSensitive?'g':'gi';
+    try {
+      const rx=new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),flags);
+      const cnt=(this.text.match(rx)||[]).length;
+      this.text=this.text.replace(rx,rep);
+      $('editor').value=this.text; this.persist(); this.updateStats();
+      $('fi-count').textContent=`${cnt} sostituzioni`;
+      this._pushUndo(this.text);
+    } catch(_) {}
+  },
+
+  /* ── SELECTION ──────────────────────────── */
+  onSelUp() {
+    setTimeout(() => {
+      const ta = $('editor');
+      const s = ta.selectionStart, e = ta.selectionEnd;
+      if (s !== e && e > s) {
+        this.selText  = ta.value.slice(s, e);
+        this.selStart = s; this.selEnd = e;
+        this._showSelBar();
+      } else {
+        this.selText  = ''; this.selStart = 0; this.selEnd = 0;
+        this._hideSelBar();
+      }
+    }, 80);
+  },
+
+  _showSelBar() {
+    const sb = $('sel-bar');
+    $('sel-preview').textContent = '«' + trunc(this.selText.replace(/\n/g,' '), 30) + '»';
+    $('sel-count').textContent   = `${this.selText.length} car.`;
+    sb.classList.add('open');
+  },
+  _hideSelBar() { $('sel-bar').classList.remove('open'); },
+
+  /* ── GROQ AI ────────────────────────────── */
+  async aiAction(type) {
+    if (!this.selText) { this.msg('Seleziona prima del testo', 'warn'); return; }
+    if (!_gasOk() || !this.gas) {
+      this.showModal('Server GAS non configurato', `
+        <p>Per usare l'AI devi configurare il server GAS.</p>
+        <p style="margin-top:8px;font-size:13px">Imposta <strong>GAS_URL</strong> e <strong>GAS_TOKEN</strong> nel blocco CFG in cima al file HTML.</p>
+        <p style="margin-top:8px;font-size:13px;color:var(--faint)">Le chiavi Groq/Mistral vanno nelle Script Properties del server GAS, non qui.</p>
+      `, [{ label: 'Chiudi', cb: () => this.closeModal() }]);
+      return;
+    }
+    this._openAISheet(type);
+    try {
+      const result = await this._callGAS(type, this.selText);
+      this.aiLastResult = result.trim();
+      this._renderAIResult(type, this.aiLastResult);
+    } catch(e) {
+      this.aiLastResult = '';
+      this._renderAIError(e.message || 'Errore di rete');
+    }
+  },
+
+  _openAISheet(type) {
+    $('ai-context-label').textContent = `AI — ${this._typeLabel(type)}`;
+    $('ai-context-text').textContent  = this.selText;
+    $('ai-result').classList.add('loading');
+    $('ai-result-text').textContent = '';
+    $('ai-spinner').style.display   = 'block';
+    this.aiLastResult = '';
+    $('ai-overlay').classList.add('open');
+    $('ai-sheet').classList.add('open');
+    // show/hide foot buttons based on type
+    const canReplace = true;
+    $('ai-btn-replace').style.display = canReplace ? '' : 'none';
+    $('ai-btn-insert').style.display  = canReplace ? '' : 'none';
+  },
+
+  async _callGAS(type, selectedText) {
+    // Leggi modello nel formato "provider|model-name"
+    const modelVal = localStorage.getItem(this.K_MODEL) || 'groq|llama-3.3-70b-versatile';
+    const [provider, ...modelParts] = modelVal.split('|');
+    const model  = modelParts.join('|');
+    const temp   = parseFloat(localStorage.getItem(this.K_TEMP) || '60') / 100;
+    const sysp   = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
+    const prompt = this._buildPrompt(type, selectedText);
+
+    const res = await this.gas.ai(
+      [{ role: 'user', content: prompt }],
+      { system: sysp, temperature: temp, model, provider, max_tokens: 900 }
+    );
+    if (!res.ok) throw new Error(res.error || 'Errore server GAS');
+    return res.data?.text || '(risposta vuota)';
+  },
+
+  _buildPrompt(type, text) {
+    const t = text.trim();
+    switch(type) {
+      case 'sinonimi':
+        return `Fornisci 8-12 sinonimi per la parola o l'espressione: "${t}"\nRispondi solo con la lista, separata da virgole. Senza introduzioni né spiegazioni.`;
+      case 'contrari':
+        return `Fornisci 6-10 contrari per la parola o l'espressione: "${t}"\nRispondi solo con la lista, separata da virgole. Senza introduzioni né spiegazioni.`;
+      case 'riformula':
+        return `Riformula questa frase in 3 modi diversi, mantenendo il significato ma variando lo stile. Numera le varianti (1. 2. 3.) e vai a capo tra l'una e l'altra. Testo da riformulare:\n"${t}"`;
+      case 'valuta':
+        return `Analizza brevemente questo testo dal punto di vista stilistico e grammaticale. Struttura la risposta in: PUNTI DI FORZA, CRITICITÀ, SUGGERIMENTO CONCRETO. Testo:\n"${t}"`;
+      default:
+        return t;
+    }
+  },
+
+  _typeLabel(type) {
+    return { sinonimi:'Sinonimi', contrari:'Contrari', riformula:'Riformulazioni', valuta:'Valutazione del periodo' }[type] || type;
+  },
+
+  _renderAIResult(type, text) {
+    $('ai-result').classList.remove('loading');
+    $('ai-spinner').style.display = 'none';
+
+    const el = $('ai-result-text');
+    if (type === 'sinonimi' || type === 'contrari') {
+      // render as chips
+      const items = text.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean);
+      el.innerHTML = items.map(w =>
+        `<span onclick="App._applyWord('${esc(w)}')" style="display:inline-block;margin:3px 4px 3px 0;padding:4px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--text);cursor:pointer;font-size:15px;transition:background .15s" onmouseover="this.style.background='var(--surf3)'" onmouseout="this.style.background=''">${esc(w)}</span>`
+      ).join('');
+    } else if (type === 'riformula') {
+      // render numbered variants
+      const parts = text.split(/\n+(?=\d+[\.\)])/);
+      if (parts.length > 1) {
+        el.innerHTML = parts.map((p,i) => {
+          const clean = p.replace(/^\d+[\.\)]\s*/, '').trim();
+          return `<div class="ai-variant"><div class="ai-variant-n">Variante ${i+1}</div>${esc(clean)}</div>`;
+        }).join('');
+      } else {
+        el.textContent = text;
+      }
+    } else {
+      // valuta — plain text
+      el.textContent = text;
+    }
+  },
+
+  _renderAIError(msg) {
+    $('ai-result').classList.remove('loading');
+    $('ai-spinner').style.display = 'none';
+    $('ai-result-text').innerHTML =
+      `<span style="color:var(--danger);font-size:14px">⚠ ${esc(msg)}</span>`;
+  },
+
+  _applyWord(word) {
+    // click on a synonym/antonym chip applies it directly
+    this._replaceSelection(word);
+    this.closeAI();
+    this.msg(`"${word}" inserito`, 'ok');
+    setTimeout(() => this.msg('—',''), 2200);
+  },
+
+  aiReplace() {
+    if (!this.aiLastResult) return;
+    // use first variant for riformula, full result otherwise
+    let replacement = this.aiLastResult;
+    const firstVariant = this.aiLastResult.match(/^\d+[\.\)]\s*(.+?)(?:\n|$)/s);
+    if (firstVariant) replacement = firstVariant[1].trim();
+    this._replaceSelection(replacement);
+    this.closeAI();
+    this.msg('testo sostituito', 'ok');
+    setTimeout(() => this.msg('—',''), 2200);
+  },
+
+  aiInsertAfter() {
+    if (!this.aiLastResult) return;
+    const ta = $('editor');
+    const pos = this.selEnd;
+    this.text = this.text.slice(0,pos) + '\n' + this.aiLastResult + this.text.slice(pos);
+    ta.value = this.text;
+    ta.selectionStart = ta.selectionEnd = pos + 1 + this.aiLastResult.length;
+    this._pushUndo(this.text);
+    this.persist(); this.updateStats();
+    this.closeAI();
+    this.msg('testo inserito', 'ok');
+    setTimeout(() => this.msg('—',''), 2200);
+  },
+
+  aiCopy() {
+    if (!this.aiLastResult) return;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(this.aiLastResult)
+        .then(() => { this.msg('copiato negli appunti', 'ok'); setTimeout(()=>this.msg('—',''),2200); });
+    }
+  },
+
+  _replaceSelection(newText) {
+    const ta = $('editor');
+    this._pushUndo(this.text);
+    this.text = this.text.slice(0, this.selStart) + newText + this.text.slice(this.selEnd);
+    ta.value = this.text;
+    const newPos = this.selStart + newText.length;
+    ta.selectionStart = ta.selectionEnd = newPos;
+    this.selStart = 0; this.selEnd = 0; this.selText = '';
+    this._pushUndo(this.text);
+    this.persist(); this.updateStats();
+    this._hideSelBar();
+  },
+
+  /* ── IMPORT / EXPORT ────────────────────── */
+  importFile() { $('file-input').click(); },
+  onFileSelect(ev) {
+    const f = ev.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = e => {
+      // ── cfg.env: carica credenziali GAS senza toccare il testo ──
+      if (f.name.toLowerCase() === 'cfg.env') {
+        const parsed = {};
+        e.target.result.split(/\r?\n/).forEach(line => {
+          line = line.trim();
+          if (!line || line.startsWith('#')) return;
+          const eq = line.indexOf('=');
+          if (eq < 1) return;
+          parsed[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+        });
+        const url = parsed['GAS_URL']   || parsed['gas_url']   || '';
+        const tok = parsed['GAS_TOKEN'] || parsed['gas_token'] || '';
+        if (!url && !tok) {
+          this.msg('cfg.env: GAS_URL e GAS_TOKEN non trovati', 'err'); return;
+        }
+        if (url) $('sp-gas-url').value   = url;
+        if (tok) $('sp-gas-token').value = tok;
+        this.openSettings();
+        this.msg('cfg.env caricato — controlla ⚙ e premi Salva', 'ok');
+        ev.target.value = ''; return;
+      }
+      // ── file normale: carica nel editor ──
+      if (this.text.trim()) this._push(`Prima di ${f.name}`, false);
+      this.text = e.target.result;
+      $('editor').value = this.text;
+      this._pushUndo(this.text);
+      this.persist(); this.updateStats();
+      this.msg(`importato: ${f.name}`, 'ok');
+      setTimeout(() => this.msg('—',''), 3000);
+    };
+    r.readAsText(f,'UTF-8');
+    ev.target.value = '';
+  },
+  exportTxt() {
+    if (!this.text) { this.msg('nulla da esportare','warn'); return; }
+    const d = new Date();
+    const s = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+    const filename = `testo_${s}.txt`;
+    // iOS Safari: <a download> apre il file nel browser invece di scaricarlo.
+    // Web Share API (iOS 12.2+) permette di salvare su File, Note, ecc.
+    if (isIOS() && navigator.share) {
+      const file = new File([this.text], filename, { type: 'text/plain' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file] })
+          .then(() => { this.msg('condiviso', 'ok'); setTimeout(()=>this.msg('—',''),2500); })
+          .catch(() => this._showTextModal(filename));
+        return;
+      }
+      this._showTextModal(filename); return;
+    }
+    // Desktop / Android
+    const blob = new Blob([this.text],{type:'text/plain;charset=utf-8'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href=url; a.download=filename; a.click();
+    URL.revokeObjectURL(url);
+    this.msg('file esportato','ok'); setTimeout(()=>this.msg('—',''),3000);
+  },
+  _showTextModal(filename) {
+    this.showModal(`Esporta: ${filename}`, `
+      <p style="margin-bottom:8px;font-size:13px;color:var(--dim)">Tocca nel campo → Seleziona tutto → Copia. Poi incolla dove vuoi (Note, Files, ecc.)</p>
+      <textarea onclick="this.select()" readonly style="width:100%;height:160px;background:var(--ed-bg);border:1px solid var(--border);color:var(--ed-fg);padding:10px;font-family:'Crimson Pro',serif;font-size:13px;border-radius:4px;resize:none;-webkit-appearance:none">${this.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+    `, [{ label: 'Chiudi', cb: () => this.closeModal() }]);
+  },
+  copyAll() {
+    if (!this.text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(this.text)
+        .then(()=>{this.msg('copiato','ok');setTimeout(()=>this.msg('—',''),2500);})
+        .catch(()=>this._fallbackCopy());
+    } else { this._fallbackCopy(); }
+  },
+  _fallbackCopy() {
+    const ta = $('editor'); ta.select();
+    try { document.execCommand('copy'); this.msg('copiato','ok'); setTimeout(()=>this.msg('—',''),2500); }
+    catch(_) { this.msg('copia non disponibile','warn'); }
+  },
+
+  /* ── GOOGLE DRIVE (via GAS Server) ─────── */
+  async exportToDrive() {
+    if (!this.text.trim()) { this.msg('nulla da esportare', 'warn'); return; }
+    if (!_gasOk() || !this.gas) { this.msg('GAS non configurato — apri ⚙', 'err'); return; }
+    const label = $('save-lbl').value.trim() || this._autoLabel();
+    this.msg('Caricamento su Drive…', 'ai');
+    try {
+      const res = await this.gas.scriptorium_save(this.text, label);
+      if (res.ok) {
+        this.msg(`"${res.data.filename}" → Drive ✓`, 'ok');
+        setTimeout(() => this.msg('—', ''), 4000);
+      } else {
+        this.msg('Errore Drive: ' + (res.error || '?'), 'err');
+      }
+    } catch(e) {
+      this.msg('Errore di rete Drive', 'err');
+    }
+  },
+
+  async loadFromDrive() {
+    if (!_gasOk() || !this.gas) { this.msg('GAS non configurato — apri ⚙', 'err'); return; }
+    this.msg('Caricamento lista Drive…', 'ai');
+    try {
+      const res = await this.gas.scriptorium_list();
+      this.msg('—', '');
+      if (!res.ok) { this.msg('Errore: ' + (res.error || '?'), 'err'); return; }
+      const files = res.data;
+      if (!files || !files.length) {
+        this.showModal('Drive — nessun file', '<p>Nessun file trovato nella cartella Scriptorium.</p>',
+          [{ label: 'Chiudi', cb: () => this.closeModal() }]);
+        return;
+      }
+      files.sort((a,b) => new Date(b.modified) - new Date(a.modified));
+      const bodyHtml = files.slice(0,30).map(f => `
+        <div onclick="App._driveLoad('${f.id.replace(/'/g, '')}')" style="padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer">
+          <div style="font-size:14px;color:var(--accent)">${f.name.replace(/</g,'&lt;')}</div>
+          <div style="font-size:11px;color:var(--faint);font-family:monospace;margin-top:2px">${new Date(f.modified).toLocaleString('it')} · ${(f.size/1024).toFixed(1)} KB</div>
+        </div>
+      `).join('');
+      this.showModal('☁ Carica da Drive', bodyHtml,
+        [{ label: 'Chiudi', cb: () => this.closeModal() }]);
+    } catch(e) { this.msg('Errore di rete', 'err'); }
+  },
+
+  driveMenu() {
+    this.showModal('☁ Google Drive', `
+      <p style="color:var(--dim);margin-bottom:4px;font-size:14px">Cosa vuoi fare?</p>
+    `, [
+      { label: '☁ Salva su Drive',  cb: () => { this.closeModal(); this.exportToDrive(); } },
+      { label: '☁ Carica da Drive', cb: () => { this.closeModal(); this.loadFromDrive(); } },
+      { label: 'Annulla',           cb: () => this.closeModal() },
+    ]);
+  },
+
+  async _driveLoad(fileId) {
+    this.closeModal();
+    this.msg('Caricamento file…', 'ai');
+    try {
+      const res = await this.gas.scriptorium_load(fileId);
+      if (!res.ok) { this.msg('Errore: ' + (res.error || '?'), 'err'); return; }
+      if (this.text.trim()) this._push('Prima del caricamento da Drive', false);
+      this.text = res.data.content;
+      $('editor').value = this.text;
+      this._pushUndo(this.text);
+      this.persist(); this.updateStats(); this.closeDrawer();
+      this.msg(`caricato: ${res.data.filename}`, 'ok');
+      setTimeout(() => this.msg('—', ''), 3000);
+    } catch(e) { this.msg('Errore di rete', 'err'); }
+  },
+
+  /* ── PANELS ─────────────────────────────── */
+  openDrawer()     { $('drawer-overlay').classList.add('open'); $('drawer').classList.add('open'); },
+  closeDrawer()    { $('drawer-overlay').classList.remove('open'); $('drawer').classList.remove('open'); },
+  openSettings()   { $('settings-overlay').classList.add('open'); $('settings-panel').classList.add('open'); },
+  closeSettings()  { $('settings-overlay').classList.remove('open'); $('settings-panel').classList.remove('open'); },
+  closeAI()        { $('ai-overlay').classList.remove('open'); $('ai-sheet').classList.remove('open'); },
+
+  /* ── RENDER LIST ────────────────────────── */
+  renderList() {
+    const el = $('vlist');
+    if (!this.versions.length) {
+      el.innerHTML = '<div id="empty-hint">Nessuna versione locale.<br><br>Usa <em>Salva</em> o ☁ Drive per creare snapshot.</div>';
+      return;
+    }
+    el.innerHTML = this.versions.map(v => `
+      <div class="vi${v.auto?' auto':''}">
+        <div class="vi-name">${esc(v.label)}</div>
+        <div class="vi-meta">${fmtDate(v.ts)} · ${v.wc.toLocaleString('it')} par.</div>
+        <div class="vi-btns">
+          <button class="sm" onclick="App.restore('${v.id}')">↩</button>
+          <button class="sm" onclick="App.showDiff('${v.id}');App.closeDrawer()">≠</button>
+          <button class="sm" onclick="App.preview('${v.id}')">◎</button>
+          <button class="sm danger" onclick="App.deleteV('${v.id}')">✕</button>
+        </div>
+      </div>
+    `).join('');
+  },
+
+  /* ── MODAL ──────────────────────────────── */
+  showModal(title, body, btns) {
+    this.modalCbs = btns.map(b=>b.cb);
+    $('modal-title').textContent = title;
+    $('modal-body').innerHTML    = body;
+    $('modal-footer').innerHTML  = btns.map((b,i)=>
+      `<button class="${b.primary?'primary':b.danger?'danger':''}" onclick="App.modalCb(${i})">${b.label}</button>`
+    ).join('');
+    $('modal-overlay').classList.add('open');
+  },
+  modalCb(i)   { if(this.modalCbs[i]) this.modalCbs[i](); },
+  closeModal() { $('modal-overlay').classList.remove('open'); this.modalCbs=[]; },
+
+  /* ── STATUS MSG ─────────────────────────── */
+  msg(text, cls) {
+    const el = $('st-msg'); el.textContent = text; el.className = cls || '';
+  },
+};
+
+/* ── DIFF ────────────────────────────────── */
+function computeDiff(oldT, newT) {
+  const O = oldT.split('\n'), N = newT.split('\n');
+  if (O.length + N.length > 1200) return blockDiff(O, N);
+  const lcs = lcsLines(O, N), res = []; let oi=0,ni=0,li=0;
+  while (oi<O.length || ni<N.length) {
+    if (li<lcs.length && oi<O.length && ni<N.length && O[oi]===lcs[li] && N[ni]===lcs[li])
+      { res.push({t:'=',s:O[oi]}); oi++;ni++;li++; }
+    else if (ni<N.length && (li>=lcs.length || N[ni]!==lcs[li]))
+      { res.push({t:'+',s:N[ni]}); ni++; }
+    else if (oi<O.length) { res.push({t:'-',s:O[oi]}); oi++; }
+    else break;
+  }
+  return res;
+}
+function lcsLines(a,b) {
+  const m=a.length,n=b.length;
+  const dp=Array.from({length:m+1},()=>new Uint16Array(n+1));
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]+1:Math.max(dp[i-1][j],dp[i][j-1]);
+  const lcs=[]; let i=m,j=n;
+  while(i>0&&j>0){if(a[i-1]===b[j-1]){lcs.unshift(a[i-1]);i--;j--;}else if(dp[i-1][j]>dp[i][j-1])i--;else j--;}
+  return lcs;
+}
+function blockDiff(O,N) {
+  const ns=new Set(N),os=new Set(O),res=[];
+  N.forEach(l=>res.push({t:os.has(l)?'=':'+',s:l}));
+  O.forEach(l=>{if(!ns.has(l))res.push({t:'-',s:l});});
+  return res;
+}
+
+App.init();
+</script>
+</body>
+</html>
