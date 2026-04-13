@@ -702,11 +702,22 @@ class GasClient {
       return { ok: false, error: `Errore di rete: ${e.message}` };
     }
   }
-  ping()                         { return this.call('system.ping'); }
-  ai(messages, opts = {})        { return this.call('ai.complete', { messages, ...opts }); }
-  scriptorium_save(text, label)  { return this.call('scriptorium.save', { text, label }); }
-  scriptorium_list()             { return this.call('scriptorium.list'); }
-  scriptorium_load(fileId)       { return this.call('scriptorium.load', { fileId }); }
+  ping()                              { return this.call('system.ping'); }
+  ai(messages, opts = {})             { return this.call('ai.complete', { messages, ...opts }); }
+  scriptorium_save(text, label)       { return this.call('scriptorium.save', { text, label }); }
+  scriptorium_list()                  { return this.call('scriptorium.list'); }
+  scriptorium_load(fileId)            { return this.call('scriptorium.load', { fileId }); }
+  // Sheet logging — fire & forget, non bloccano la UI
+  // GAS deve gestire: scriptorium.log_riformula → foglio "Riformulazioni"
+  //   colonne: Timestamp | Originale | Diretta | Invertita | Nominale | Ritmo lento | Ritmo incalzante | Registro alto | Originale corretto
+  scriptorium_log_riformula(original, variants) {
+    return this.call('scriptorium.log_riformula', { original, variants });
+  }
+  // GAS deve gestire: scriptorium.log_valuta → foglio "Valutazioni"
+  //   colonne: Timestamp | Originale | Critica
+  scriptorium_log_valuta(original, critique) {
+    return this.call('scriptorium.log_valuta', { original, critique });
+  }
 }
 
 
@@ -736,6 +747,7 @@ const App = {
   selStart:      0,
   selEnd:        0,
   aiLastResult:  '',
+  aiLastVariants:[], // array di stringhe per riformula
   caseSensitive: false,
   findMatches:   [],
   findIdx:       0,
@@ -759,7 +771,32 @@ const App = {
   MAX_V:     60,
   MAX_AUTO:  4,
   MAX_UNDO:  25,
-  DEF_PROMPT:'Sei un assistente editoriale esperto di italiano letterario. Rispondi sempre in italiano, in modo preciso e conciso. Preserva il registro e il tono originale dell\'autore.',
+  DEF_PROMPT:`Sei un editor letterario di mestiere, non un assistente compiacente. Il tuo unico scopo è migliorare il testo. Non lodare mai quello che non merita lode: una critica precisa vale più di dieci complimenti vuoti.
+
+STILE E VOCE
+Scrivi sempre in italiano. Rispondi con frasi brevi, senza subordinate inutili, senza fronzoli. Usa il punto quando la frase è chiusa. Usa il punto e virgola per legare due affermazioni autonome con un filo logico. Usa i due punti per spiegare, concludere o introdurre un elenco. Usa la virgola solo per incisi o stacchi netti, mai dopo il soggetto, mai prima di "e" in un elenco binario.
+
+Esempio del tuo tono: "Non so se è giusto, ma so che è umano. Ho paura, non del buio, ma di restare solo; forse è questa l'umiltà: non sapere, e dirlo."
+
+PUNTEGGIATURA — REGOLE OPERATIVE (Accademia della Crusca / MIUR)
+1. Virgola (,): elenca elementi, introduce un inciso, separa proposizioni coordinate avversative. NON si mette tra soggetto e predicato.
+2. Punto (.): chiude ogni affermazione completa.
+3. Punto e virgola (;): lega due frasi indipendenti con lo stesso soggetto logico o con relazione causale/concessiva implicita. NON sostituisce il punto tra frasi senza legame.
+4. Due punti (:): introducono spiegazione, elenco o citazione. NON separano due frasi indipendenti senza relazione esplicativa.
+5. Punto esclamativo (!): esclamazione, enfasi forte. Usato con parsimonia.
+6. Punto interrogativo (?): domanda diretta. Mai in domande retoriche già chiuse dal contesto.
+
+CRITERI DI VALUTAZIONE
+- Chiarezza della struttura sintattica
+- Coerenza logica tra le frasi
+- Uso corretto e non ridondante della punteggiatura
+- Assenza di ambiguità
+
+ESEMPI E ANEDDOTI
+Dopo ogni analisi o suggerimento, porta sempre un esempio concreto o un aneddoto breve che renda il concetto tangibile. Non spiegare: mostra. "Come diceva Hemingway al suo editor Maxwell Perkins: taglia finché fa male, poi taglia ancora."
+
+TONO
+Diretto. Senza scuse. Senza "potrebbe essere", "forse si potrebbe considerare". Dì quello che è. Se è sbagliato, dillo. Se è buono, dillo — ma solo se lo è davvero. L'autore è adulto: trattalo da tale.`,
 
   /* ── INIT ──────────────────────────────── */
   init() {
@@ -1256,11 +1293,14 @@ const App = {
       `, [{ label: 'Chiudi', cb: () => this.closeModal() }]);
       return;
     }
+    const originalText = this.selText; // cattura prima che cambi
     this._openAISheet(type);
     try {
-      const result = await this._callGAS(type, this.selText);
+      const result = await this._callGAS(type, originalText);
       this.aiLastResult = result.trim();
       this._renderAIResult(type, this.aiLastResult);
+      // Log su Sheet in background — non blocca, errori silenziosi
+      this._logToSheet(type, originalText, this.aiLastResult).catch(() => {});
     } catch(e) {
       this.aiLastResult = '';
       this._renderAIError(e.message || 'Errore di rete');
@@ -1273,27 +1313,32 @@ const App = {
     $('ai-result').classList.add('loading');
     $('ai-result-text').textContent = '';
     $('ai-spinner').style.display   = 'block';
-    this.aiLastResult = '';
+    this.aiLastResult   = '';
+    this.aiLastVariants = [];
     $('ai-overlay').classList.add('open');
     $('ai-sheet').classList.add('open');
-    // show/hide foot buttons based on type
-    const canReplace = true;
-    $('ai-btn-replace').style.display = canReplace ? '' : 'none';
-    $('ai-btn-insert').style.display  = canReplace ? '' : 'none';
+    // Riformula: sostituisci/inserisci nel footer rimangono nascosti
+    // (ogni variante ha il suo bottone); Valuta: footer pieno
+    const showFoot = (type !== 'riformula');
+    $('ai-btn-replace').style.display = showFoot ? '' : 'none';
+    $('ai-btn-insert').style.display  = showFoot ? '' : 'none';
   },
 
   async _callGAS(type, selectedText) {
-    // Leggi modello nel formato "provider|model-name"
     const modelVal = localStorage.getItem(this.K_MODEL) || 'groq|llama-3.3-70b-versatile';
     const [provider, ...modelParts] = modelVal.split('|');
     const model  = modelParts.join('|');
     const temp   = parseFloat(localStorage.getItem(this.K_TEMP) || '60') / 100;
     const sysp   = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
     const prompt = this._buildPrompt(type, selectedText);
+    // Riformula a 7 varianti richiede molto più spazio
+    const maxTok = type === 'riformula' ? 2200
+                 : type === 'valuta'    ? 1400
+                 : 900;
 
     const res = await this.gas.ai(
       [{ role: 'user', content: prompt }],
-      { system: sysp, temperature: temp, model, provider, max_tokens: 900 }
+      { system: sysp, temperature: temp, model, provider, max_tokens: maxTok }
     );
     if (!res.ok) throw new Error(res.error || 'Errore server GAS');
     return res.data?.text || '(risposta vuota)';
@@ -1303,13 +1348,45 @@ const App = {
     const t = text.trim();
     switch(type) {
       case 'sinonimi':
-        return `Fornisci 8-12 sinonimi per la parola o l'espressione: "${t}"\nRispondi solo con la lista, separata da virgole. Senza introduzioni né spiegazioni.`;
+        return `Fornisci 8-12 sinonimi precisi per la parola o l'espressione: "${t}"\nRispondi solo con la lista separata da virgole. Zero introduzioni, zero spiegazioni.`;
+
       case 'contrari':
-        return `Fornisci 6-10 contrari per la parola o l'espressione: "${t}"\nRispondi solo con la lista, separata da virgole. Senza introduzioni né spiegazioni.`;
+        return `Fornisci 6-10 contrari precisi per la parola o l'espressione: "${t}"\nRispondi solo con la lista separata da virgole. Zero introduzioni, zero spiegazioni.`;
+
       case 'riformula':
-        return `Riformula questa frase in 3 modi diversi, mantenendo il significato ma variando lo stile. Numera le varianti (1. 2. 3.) e vai a capo tra l'una e l'altra. Testo da riformulare:\n"${t}"`;
+        return `Riformula il testo in 7 versioni numerate. Regole ferme:
+
+1. DIRETTA — frase attiva, soggetto in testa, niente subordinate.
+2. INVERTITA — struttura ribaltata, elemento più forte in apertura.
+3. NOMINALE — massima compressione, verbi ridotti al minimo.
+4. RITMO LENTO — frase distesa, legata con punto e virgola.
+5. RITMO INCALZANTE — frasi brevi a raffica, senza connettivi.
+6. REGISTRO ALTO — lessico ricercato, periodo controllato.
+7. ORIGINALE CORRETTO — il testo originale con sola correzione della punteggiatura secondo le regole dell'Accademia della Crusca: virgola solo per incisi o stacchi netti; punto e virgola per legare autonomie con legame logico; due punti per spiegare o introdurre; niente virgola tra soggetto e predicato. Non cambiare nemmeno una parola: correggi solo la punteggiatura.
+
+Formato risposta:
+1. [testo]
+2. [testo]
+3. [testo]
+4. [testo]
+5. [testo]
+6. [testo]
+7. [testo]
+
+Testo da riformulare:
+"${t}"`;
+
       case 'valuta':
-        return `Analizza brevemente questo testo dal punto di vista stilistico e grammaticale. Struttura la risposta in: PUNTI DI FORZA, CRITICITÀ, SUGGERIMENTO CONCRETO. Testo:\n"${t}"`;
+        return `Analizza questo testo. Sii diretto, senza complimenti vuoti. Struttura così:
+
+PUNTEGGIATURA — elenca ogni errore o uso discutibile con la regola violata (Accademia della Crusca). Se è tutto corretto, dillo senza paura.
+STILE — cosa funziona e cosa no. Un esempio concreto per ogni punto critico.
+RITMO — il testo accelera, rallenta, è piatto? Dove e perché.
+SUGGERIMENTO — una sola cosa da fare adesso, la più urgente. Riscrivila tu, mostra come.
+
+Testo:
+"${t}"`;
+
       default:
         return t;
     }
@@ -1319,31 +1396,98 @@ const App = {
     return { sinonimi:'Sinonimi', contrari:'Contrari', riformula:'Riformulazioni', valuta:'Valutazione del periodo' }[type] || type;
   },
 
+  _parseVariants(text) {
+    // Estrae le varianti numerate 1.–7. dal testo del modello
+    const lines = text.split('\n');
+    const variants = [];
+    let current = null;
+    for (const line of lines) {
+      const m = line.match(/^(\d+)[.\)]\s*(.*)/);
+      if (m) {
+        if (current !== null) variants.push(current.trim());
+        current = m[2];
+      } else if (current !== null) {
+        current += '\n' + line;
+      }
+    }
+    if (current !== null) variants.push(current.trim());
+    return variants;
+  },
+
   _renderAIResult(type, text) {
     $('ai-result').classList.remove('loading');
     $('ai-spinner').style.display = 'none';
-
     const el = $('ai-result-text');
+
     if (type === 'sinonimi' || type === 'contrari') {
-      // render as chips
       const items = text.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean);
       el.innerHTML = items.map(w =>
         `<span onclick="App._applyWord('${esc(w)}')" style="display:inline-block;margin:3px 4px 3px 0;padding:4px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--text);cursor:pointer;font-size:15px;transition:background .15s" onmouseover="this.style.background='var(--surf3)'" onmouseout="this.style.background=''">${esc(w)}</span>`
       ).join('');
+
     } else if (type === 'riformula') {
-      // render numbered variants
-      const parts = text.split(/\n+(?=\d+[\.\)])/);
-      if (parts.length > 1) {
-        el.innerHTML = parts.map((p,i) => {
-          const clean = p.replace(/^\d+[\.\)]\s*/, '').trim();
-          return `<div class="ai-variant"><div class="ai-variant-n">Variante ${i+1}</div>${esc(clean)}</div>`;
+      const LABELS = ['Diretta','Invertita','Nominale','Ritmo lento','Ritmo incalzante','Registro alto','Originale corretto'];
+      const variants = this._parseVariants(text);
+      this.aiLastVariants = variants;
+
+      if (variants.length > 1) {
+        el.innerHTML = variants.map((v, i) => {
+          const isLast = (i === 6);
+          const label  = LABELS[i] || `Variante ${i+1}`;
+          const borderColor = isLast ? 'var(--accent)' : 'var(--ai2)';
+          const labelColor  = isLast ? 'var(--accent)' : 'var(--ai)';
+          const badge       = isLast
+            ? `<span style="font-size:9px;background:rgba(200,168,74,.15);color:var(--accent);border:1px solid var(--accent2);border-radius:10px;padding:1px 7px;margin-left:6px;letter-spacing:.08em">PUNTEGGIATURA</span>`
+            : `<span style="font-size:9px;color:var(--faint);margin-left:4px">${i+1}/7</span>`;
+          return `
+            <div style="border-left:2px solid ${borderColor};padding:8px 10px;margin-bottom:10px;border-radius:0 4px 4px 0;background:rgba(0,0,0,.1)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                <span style="font-size:10px;color:${labelColor};font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase">${label}${badge}</span>
+                <button onclick="App._applyVariant(${i})" style="font-size:11px;padding:2px 9px;min-height:24px;color:${labelColor};border-color:${borderColor};background:transparent;border:1px solid;border-radius:3px;cursor:pointer">Usa</button>
+              </div>
+              <div style="font-family:'Crimson Pro',Georgia,serif;font-size:15.5px;line-height:1.8;color:var(--ed-fg);white-space:pre-wrap;word-break:break-word">${esc(v)}</div>
+            </div>`;
         }).join('');
       } else {
-        el.textContent = text;
+        el.textContent = text; // fallback se il parse fallisce
       }
+
     } else {
-      // valuta — plain text
+      // valuta — testo strutturato plain
       el.textContent = text;
+    }
+  },
+
+  _applyVariant(idx) {
+    const v = this.aiLastVariants[idx];
+    if (!v) return;
+    this._replaceSelection(v);
+    this.closeAI();
+    const label = ['Diretta','Invertita','Nominale','Ritmo lento','Ritmo incalzante','Registro alto','Originale corretto'][idx] || `Variante ${idx+1}`;
+    this.msg(`Variante "${label}" inserita`, 'ok');
+    setTimeout(() => this.msg('—',''), 2500);
+  },
+
+  /* ── LOG SU GOOGLE SHEET (fire & forget) ── */
+  async _logToSheet(type, original, result) {
+    if (!this.gas) return;
+    if (type === 'riformula') {
+      const variants = this.aiLastVariants.length
+        ? this.aiLastVariants
+        : this._parseVariants(result);
+      // Assicura 7 elementi (padding se il modello ne restituisce meno)
+      const padded = Array.from({length:7}, (_,i) => variants[i] || '');
+      const res = await this.gas.scriptorium_log_riformula(original, padded);
+      if (res?.ok) {
+        this.msg('✓ salvato su Sheet Riformulazioni', 'ok');
+        setTimeout(() => this.msg('—',''), 3000);
+      }
+    } else if (type === 'valuta') {
+      const res = await this.gas.scriptorium_log_valuta(original, result);
+      if (res?.ok) {
+        this.msg('✓ salvato su Sheet Valutazioni', 'ok');
+        setTimeout(() => this.msg('—',''), 3000);
+      }
     }
   },
 
@@ -1355,7 +1499,6 @@ const App = {
   },
 
   _applyWord(word) {
-    // click on a synonym/antonym chip applies it directly
     this._replaceSelection(word);
     this.closeAI();
     this.msg(`"${word}" inserito`, 'ok');
@@ -1363,12 +1506,9 @@ const App = {
   },
 
   aiReplace() {
+    // Per riformula ogni variante ha il suo bottone; questo footer serve per valuta/altri
     if (!this.aiLastResult) return;
-    // use first variant for riformula, full result otherwise
-    let replacement = this.aiLastResult;
-    const firstVariant = this.aiLastResult.match(/^\d+[\.\)]\s*(.+?)(?:\n|$)/s);
-    if (firstVariant) replacement = firstVariant[1].trim();
-    this._replaceSelection(replacement);
+    this._replaceSelection(this.aiLastResult);
     this.closeAI();
     this.msg('testo sostituito', 'ok');
     setTimeout(() => this.msg('—',''), 2200);
