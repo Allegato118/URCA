@@ -127,6 +127,31 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #diff-stats { font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
 
+/* ── BOOKMARK STRIP ──────────────────────── */
+#mark-strip {
+  display: none;
+  background: rgba(200,168,74,.06);
+  border-bottom: 1px solid rgba(200,168,74,.22);
+  padding: 5px 12px; gap: 8px; align-items: center; flex-shrink: 0;
+  overflow: hidden;
+}
+#mark-strip.open { display: flex; }
+#mark-icon { font-size: 13px; flex-shrink: 0; color: var(--accent); }
+#mark-context {
+  flex: 1; font-size: 12.5px; color: var(--dim); font-family: 'Crimson Pro', Georgia, serif;
+  font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0;
+}
+#mark-pct {
+  font-size: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0; white-space: nowrap;
+}
+.mark-btn { min-height: 26px; font-size: 11.5px; padding: 2px 8px; flex-shrink: 0; }
+
+/* status bar mark indicator */
+#st-mark { cursor: pointer; }
+#st-mark:hover .st-v { color: var(--accent); }
+
 /* ── EDITOR ZONE ─────────────────────────── */
 #edit-zone { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
@@ -414,6 +439,9 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   <button class="tb-desk" onclick="App.undo()" title="Annulla (Ctrl+Z)">↩</button>
   <button class="tb-desk" onclick="App.redo()" title="Ripeti (Ctrl+Y)">↪</button>
   <div class="vsep tb-desk"></div>
+  <button class="tb-desk" onclick="App.setMark()" title="Segna posizione review al cursore">📌 Segna</button>
+  <button class="tb-desk" id="btn-go-mark" onclick="App.goToMark()" title="Vai al segnalibro" style="display:none">→ Segnalibro</button>
+  <div class="vsep tb-desk"></div>
   <button class="tb-desk" onclick="App.toggleFind()">⌕ Cerca</button>
   <div class="vsep tb-desk"></div>
   <button class="tb-desk" id="btn-diff-close" style="display:none" onclick="App.closeDiff()">✕ Confronto</button>
@@ -425,6 +453,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   <button class="icon tb-mob" onclick="App.exportTxt()" title="Locale">↓</button>
   <button class="icon tb-mob" onclick="App.driveMenu()" id="btn-drive-mob" title="Drive — Salva / Carica">☁</button>
   <button class="icon tb-mob" onclick="App.undo()">↩</button>
+  <button class="icon tb-mob" onclick="App.setMark()" title="Segna posizione">📌</button>
   <button class="icon tb-mob" onclick="App.toggleFind()">⌕</button>
   <button class="icon tb-mob" id="btn-dc-mob" style="display:none" onclick="App.closeDiff()">✗</button>
 
@@ -463,6 +492,16 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   <button class="primary sm-mono" onclick="App.restoreFromDiff()">↩ Ripristina</button>
 </div>
 
+<!-- ── BOOKMARK STRIP ── -->
+<div id="mark-strip">
+  <span id="mark-icon">📌</span>
+  <span id="mark-context">—</span>
+  <span id="mark-pct"></span>
+  <button class="mark-btn" onclick="App.goToMark()">→ Vai</button>
+  <button class="mark-btn" onclick="App.setMark()">Aggiorna qui</button>
+  <button class="mark-btn danger" onclick="App.clearMark()">✕</button>
+</div>
+
 <!-- ── EDITOR ZONE ── -->
 <div id="edit-zone">
   <textarea id="editor"
@@ -494,6 +533,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   <span><span class="st-k">§</span><span class="st-v" id="st-para">0</span></span>
   <span class="st-read"><span class="st-k">Lettura</span><span class="st-v" id="st-read">—</span></span>
   <span id="st-undo" onclick="App.undo()" title="Annullabili"><span class="st-k">Undo</span><span class="st-v" id="st-undo-n">0</span></span>
+  <span id="st-mark" onclick="App.goToMark()" title="Vai al segnalibro"><span class="st-k">📌</span><span class="st-v" id="st-mark-v">—</span></span>
   <span id="st-msg">—</span>
 </div>
 
@@ -502,6 +542,8 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   <button class="icon" onclick="App.copyAll()">⎘</button>
   <button class="icon" onclick="App.undo()">↩</button>
   <button class="icon" onclick="App.saveSnapshot()">◉</button>
+  <button class="icon" onclick="App.setMark()" title="Segna posizione review">📌</button>
+  <button class="icon" onclick="App.goToMark()" title="Vai al segnalibro">→📌</button>
   <button class="icon" onclick="App.openSettings()">⚙</button>
   <button class="icon" onclick="App.openDrawer()">☰</button>
 </div>
@@ -703,6 +745,7 @@ const App = {
   autoTimer:     null,
   undoTimer:     null,
   gas:           null,
+  markPos:       0,      // character offset del segnalibro review
 
   /* config */
   K_TEXT:    'scr3:text',
@@ -712,6 +755,7 @@ const App = {
   K_TEMP:    'scr3:temp',
   K_GAS_URL: 'scr3:gas_url',
   K_GAS_TOK: 'scr3:gas_token',
+  K_MARK:    'scr3:mark',
   MAX_V:     60,
   MAX_AUTO:  4,
   MAX_UNDO:  25,
@@ -764,7 +808,14 @@ const App = {
     try {
       this.text     = localStorage.getItem(this.K_TEXT) || '';
       this.versions = JSON.parse(localStorage.getItem(this.K_VERS) || '[]');
+      this.markPos  = parseInt(localStorage.getItem(this.K_MARK) || '0') || 0;
       $('editor').value = this.text;
+      // Auto-scroll al segnalibro alla riapertura
+      if (this.markPos > 0) {
+        setTimeout(() => { this._scrollToMark(); this._updateMarkStrip(); }, 300);
+      } else {
+        this._updateMarkStrip();
+      }
     } catch(_) { this.msg('Errore caricamento', 'err'); }
   },
 
@@ -772,6 +823,11 @@ const App = {
     try {
       localStorage.setItem(this.K_TEXT, this.text);
       localStorage.setItem(this.K_VERS, JSON.stringify(this.versions));
+      if (this.markPos > 0) {
+        localStorage.setItem(this.K_MARK, this.markPos);
+      } else {
+        localStorage.removeItem(this.K_MARK);
+      }
     } catch(_) { this.msg('Storage pieno — esporta!', 'err'); }
   },
 
@@ -831,6 +887,7 @@ const App = {
     this.persist();
     this.resetAutoTimer();
     this._scheduleUndo();
+    this._updateMarkStrip();
     this.msg('…', '');
   },
 
@@ -893,6 +950,82 @@ const App = {
     this.persist(); this.updateStats();
     this.msg('ripetuto', 'ok');
     setTimeout(() => this.msg('—', ''), 2000);
+  },
+
+  /* ── BOOKMARK / SEGNALIBRO REVIEW ───────── */
+  setMark() {
+    const ta  = $('editor');
+    // Usa il cursore se disponibile, altrimenti lo scrollTop corrente
+    const pos = (ta.selectionStart !== ta.selectionEnd)
+      ? ta.selectionStart
+      : ta.selectionStart;
+    this.markPos = pos;
+    localStorage.setItem(this.K_MARK, this.markPos);
+    this._updateMarkStrip();
+    this.msg('segnalibro impostato', 'ok');
+    setTimeout(() => this.msg('—', ''), 2200);
+  },
+
+  goToMark() {
+    if (!this.markPos) { this.msg('nessun segnalibro impostato', 'warn'); return; }
+    const ta = $('editor');
+    const pos = Math.min(this.markPos, this.text.length);
+    this._scrollToMark();
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+    }, 50);
+  },
+
+  clearMark() {
+    this.markPos = 0;
+    localStorage.removeItem(this.K_MARK);
+    this._updateMarkStrip();
+    this.msg('segnalibro rimosso', '');
+    setTimeout(() => this.msg('—', ''), 1800);
+  },
+
+  _scrollToMark() {
+    const ta  = $('editor');
+    const pos = Math.min(this.markPos, this.text.length);
+    // Calcola la riga in cui si trova la posizione
+    const before = this.text.slice(0, pos);
+    const linesBefore = (before.match(/\n/g) || []).length;
+    const lh = parseFloat(getComputedStyle(ta).lineHeight) || 34;
+    const pt = parseFloat(getComputedStyle(ta).paddingTop) || 28;
+    // Centra verticalmente il punto nel viewport
+    ta.scrollTop = Math.max(0, linesBefore * lh + pt - ta.clientHeight / 2.5);
+  },
+
+  _updateMarkStrip() {
+    const strip  = $('mark-strip');
+    const stMarkV = $('st-mark-v');
+    const goBtn  = $('btn-go-mark');
+
+    if (!this.markPos || this.markPos === 0 || !this.text) {
+      strip.classList.remove('open');
+      if (stMarkV) stMarkV.textContent = '—';
+      if (goBtn)   goBtn.style.display = 'none';
+      return;
+    }
+
+    strip.classList.add('open');
+    if (goBtn) goBtn.style.display = '';
+
+    // Contesto: ~40 caratteri intorno al marcatore
+    const safePos = Math.min(this.markPos, this.text.length);
+    const start   = Math.max(0, safePos - 40);
+    const end     = Math.min(this.text.length, safePos + 40);
+    const before  = this.text.slice(start, safePos).replace(/\n/g,' ');
+    const after   = this.text.slice(safePos, end).replace(/\n/g,' ');
+    $('mark-context').textContent = '…' + before + '|' + after + '…';
+
+    // Percentuale e numero paragrafo
+    const pct        = this.text.length > 0 ? Math.round(safePos / this.text.length * 100) : 0;
+    const wordsBefore = this.text.slice(0, safePos).trim().split(/\s+/).filter(Boolean).length;
+    $('mark-pct').textContent = `${pct}% · ${wordsBefore.toLocaleString('it')} par.`;
+
+    if (stMarkV) stMarkV.textContent = `${pct}%`;
   },
 
   /* ── AUTO-SAVE ──────────────────────────── */
@@ -1425,6 +1558,7 @@ const App = {
       $('editor').value = this.text;
       this._pushUndo(this.text);
       this.persist(); this.updateStats(); this.closeDrawer();
+      this._updateMarkStrip();
       this.msg(`caricato: ${res.data.filename}`, 'ok');
       setTimeout(() => this.msg('—', ''), 3000);
     } catch(e) { this.msg('Errore di rete', 'err'); }
