@@ -371,6 +371,48 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 .ai-variant-n { font-size: 10px; color: var(--ai); font-family: 'JetBrains Mono', monospace;
   margin-bottom: 3px; letter-spacing: .1em; text-transform: uppercase; }
 
+/* ── AI COMPETITION TABS ─────────────────── */
+#ai-tabs {
+  display: none;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  gap: 4px;
+  flex-shrink: 0;
+  background: var(--surf2);
+}
+#ai-tabs.open { display: flex; }
+.ai-tab {
+  font-size: 12px; padding: 7px 14px; min-height: 34px;
+  border-radius: 0; border: none; border-bottom: 2px solid transparent;
+  color: var(--dim); background: transparent; cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; letter-spacing: .06em;
+  transition: all var(--t);
+}
+.ai-tab.active { color: var(--ai); border-bottom-color: var(--ai); }
+.ai-tab.loading-tab { color: var(--faint); }
+.ai-tab.done-tab   { color: var(--ok); border-bottom-color: var(--ok); }
+
+/* score badge in valuta */
+.ai-score-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: 14px; padding: 8px 14px;
+  border: 1px solid var(--border2); border-radius: 6px;
+  background: rgba(0,0,0,.15);
+}
+.ai-score-num { font-size: 26px; font-family: 'JetBrains Mono', monospace; color: var(--accent); line-height: 1; }
+.ai-score-label { font-size: 13.5px; color: var(--text); line-height: 1.5; }
+.ai-editor-version {
+  border-left: 2px solid var(--accent); padding: 10px 12px;
+  margin-top: 14px; background: rgba(200,168,74,.05);
+  font-family: 'Crimson Pro', Georgia, serif; font-size: 15.5px;
+  line-height: 1.85; color: var(--ed-fg); white-space: pre-wrap;
+  word-break: break-word;
+}
+.ai-editor-version-label {
+  font-size: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace;
+  letter-spacing: .12em; text-transform: uppercase; margin-bottom: 7px;
+}
+
 #ai-foot { padding: 9px 10px; border-top: 1px solid var(--border);
   display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
 #ai-foot button { min-height: 38px; font-size: 13px; flex: 1; }
@@ -583,19 +625,22 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   <div id="sp-body">
 
     <div class="sp-section">
-      <label class="sp-label">Provider e Modello AI</label>
+      <label class="sp-label">Modello Groq (competizione)</label>
       <select class="sp-select" id="sp-model">
-        <optgroup label="Groq">
-          <option value="groq|llama-3.3-70b-versatile">LLaMA 3.3 70B — qualità massima</option>
-          <option value="groq|llama-3.1-8b-instant">LLaMA 3.1 8B — velocissimo</option>
-          <option value="groq|mixtral-8x7b-32768">Mixtral 8x7B — equilibrato</option>
-        </optgroup>
-        <optgroup label="Mistral">
-          <option value="mistral|mistral-medium-latest">Mistral Medium — qualità alta</option>
-          <option value="mistral|mistral-small-latest">Mistral Small — veloce</option>
-        </optgroup>
+        <option value="groq|llama-3.3-70b-versatile">LLaMA 3.3 70B — qualità massima</option>
+        <option value="groq|llama-3.1-8b-instant">LLaMA 3.1 8B — velocissimo</option>
+        <option value="groq|mixtral-8x7b-32768">Mixtral 8x7B — equilibrato</option>
       </select>
-      <p class="sp-note">Le chiavi API vivono nel server GAS, non qui. Sicuro su qualsiasi dispositivo.</p>
+    </div>
+
+    <div class="sp-section">
+      <label class="sp-label">Modello Mistral (competizione)</label>
+      <select class="sp-select" id="sp-model-mistral">
+        <option value="mistral|mistral-large-latest">Mistral Large — qualità massima</option>
+        <option value="mistral|mistral-medium-latest">Mistral Medium — equilibrato</option>
+        <option value="mistral|mistral-small-latest">Mistral Small — veloce</option>
+      </select>
+      <p class="sp-note">Riformula e Valuta chiamano entrambi i modelli in parallelo e mostrano i risultati a confronto. Sinonimi e Contrari usano solo il modello Groq.</p>
     </div>
 
     <div class="sp-section">
@@ -659,6 +704,11 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
     <button class="ai-btn" onclick="App.aiAction('contrari')">Contrari</button>
     <button class="ai-btn" onclick="App.aiAction('riformula')">Riformula</button>
     <button class="ai-btn" onclick="App.aiAction('valuta')">Valuta periodo</button>
+  </div>
+  <!-- tab bar: visible only in competition mode -->
+  <div id="ai-tabs">
+    <button class="ai-tab active" id="tab-groq"    onclick="App.switchTab('groq')">⚡ Groq</button>
+    <button class="ai-tab"        id="tab-mistral" onclick="App.switchTab('mistral')">✦ Mistral</button>
   </div>
   <div id="ai-result">
     <div id="ai-spinner"></div>
@@ -748,6 +798,13 @@ const App = {
   selEnd:        0,
   aiLastResult:  '',
   aiLastVariants:[], // array di stringhe per riformula
+  // competition mode results
+  aiGroqResult:    '',
+  aiMistralResult: '',
+  aiGroqVariants:  [],
+  aiMistralVariants: [],
+  activeTab:       'groq',
+  currentType:     '',
   caseSensitive: false,
   findMatches:   [],
   findIdx:       0,
@@ -757,46 +814,49 @@ const App = {
   autoTimer:     null,
   undoTimer:     null,
   gas:           null,
-  markPos:       0,      // character offset del segnalibro review
+  markPos:       0,
 
   /* config */
-  K_TEXT:    'scr3:text',
-  K_VERS:    'scr3:vers',
-  K_SYSPROMPT:'scr3:sysprompt',
-  K_MODEL:   'scr3:model',
-  K_TEMP:    'scr3:temp',
-  K_GAS_URL: 'scr3:gas_url',
-  K_GAS_TOK: 'scr3:gas_token',
-  K_MARK:    'scr3:mark',
+  K_TEXT:         'scr3:text',
+  K_VERS:         'scr3:vers',
+  K_SYSPROMPT:    'scr3:sysprompt',
+  K_MODEL:        'scr3:model',
+  K_MODEL_MISTRAL:'scr3:model_mistral',
+  K_TEMP:         'scr3:temp',
+  K_GAS_URL:      'scr3:gas_url',
+  K_GAS_TOK:      'scr3:gas_token',
+  K_MARK:         'scr3:mark',
   MAX_V:     60,
   MAX_AUTO:  4,
   MAX_UNDO:  25,
-  DEF_PROMPT:`Sei un editor letterario di mestiere, non un assistente compiacente. Il tuo unico scopo è migliorare il testo. Non lodare mai quello che non merita lode: una critica precisa vale più di dieci complimenti vuoti.
-
-STILE E VOCE
-Scrivi sempre in italiano. Rispondi con frasi brevi, senza subordinate inutili, senza fronzoli. Usa il punto quando la frase è chiusa. Usa il punto e virgola per legare due affermazioni autonome con un filo logico. Usa i due punti per spiegare, concludere o introdurre un elenco. Usa la virgola solo per incisi o stacchi netti, mai dopo il soggetto, mai prima di "e" in un elenco binario.
-
-Esempio del tuo tono: "Non so se è giusto, ma so che è umano. Ho paura, non del buio, ma di restare solo; forse è questa l'umiltà: non sapere, e dirlo."
-
-PUNTEGGIATURA — REGOLE OPERATIVE (Accademia della Crusca / MIUR)
-1. Virgola (,): elenca elementi, introduce un inciso, separa proposizioni coordinate avversative. NON si mette tra soggetto e predicato.
-2. Punto (.): chiude ogni affermazione completa.
-3. Punto e virgola (;): lega due frasi indipendenti con lo stesso soggetto logico o con relazione causale/concessiva implicita. NON sostituisce il punto tra frasi senza legame.
-4. Due punti (:): introducono spiegazione, elenco o citazione. NON separano due frasi indipendenti senza relazione esplicativa.
-5. Punto esclamativo (!): esclamazione, enfasi forte. Usato con parsimonia.
-6. Punto interrogativo (?): domanda diretta. Mai in domande retoriche già chiuse dal contesto.
-
-CRITERI DI VALUTAZIONE
-- Chiarezza della struttura sintattica
-- Coerenza logica tra le frasi
-- Uso corretto e non ridondante della punteggiatura
-- Assenza di ambiguità
-
-ESEMPI E ANEDDOTI
-Dopo ogni analisi o suggerimento, porta sempre un esempio concreto o un aneddoto breve che renda il concetto tangibile. Non spiegare: mostra. "Come diceva Hemingway al suo editor Maxwell Perkins: taglia finché fa male, poi taglia ancora."
-
-TONO
-Diretto. Senza scuse. Senza "potrebbe essere", "forse si potrebbe considerare". Dì quello che è. Se è sbagliato, dillo. Se è buono, dillo — ma solo se lo è davvero. L'autore è adulto: trattalo da tale.`,
+  DEF_PROMPT: [
+    'Sei un editor letterario di mestiere, non un assistente compiacente. Il tuo unico scopo è migliorare il testo. Non lodare mai quello che non merita lode: una critica precisa vale più di dieci complimenti vuoti.',
+    '',
+    'STILE E VOCE',
+    'Scrivi sempre in italiano. Rispondi con frasi brevi, senza subordinate inutili, senza fronzoli. Usa il punto quando la frase è chiusa. Usa il punto e virgola per legare due affermazioni autonome con un filo logico. Usa i due punti per spiegare, concludere o introdurre un elenco. Usa la virgola solo per incisi o stacchi netti, mai dopo il soggetto, mai prima di "e" in un elenco binario.',
+    '',
+    'Esempio del tuo tono: "Non so se è giusto, ma so che è umano. Ho paura, non del buio, ma di restare solo; forse è questa l\'umiltà: non sapere, e dirlo."',
+    '',
+    'PUNTEGGIATURA — REGOLE OPERATIVE (Accademia della Crusca / MIUR)',
+    '1. Virgola: elenca elementi, introduce un inciso, separa proposizioni coordinate avversative. NON si mette tra soggetto e predicato.',
+    '2. Punto: chiude ogni affermazione completa.',
+    '3. Punto e virgola: lega due frasi indipendenti con lo stesso soggetto logico o relazione causale/concessiva implicita.',
+    '4. Due punti: introducono spiegazione, elenco o citazione. NON separano due frasi indipendenti senza relazione esplicativa.',
+    '5. Punto esclamativo: esclamazione, enfasi forte. Usato con parsimonia.',
+    '6. Punto interrogativo: domanda diretta.',
+    '',
+    'CRITERI DI VALUTAZIONE',
+    '- Chiarezza della struttura sintattica',
+    '- Coerenza logica tra le frasi',
+    '- Uso corretto e non ridondante della punteggiatura',
+    '- Assenza di ambiguità',
+    '',
+    'ESEMPI E ANEDDOTI',
+    'Dopo ogni analisi o suggerimento, porta sempre un esempio concreto o un aneddoto breve che renda il concetto tangibile. Non spiegare: mostra.',
+    '',
+    'TONO',
+    'Diretto. Senza scuse. Senza "potrebbe essere", "forse si potrebbe considerare". Di quello che è. Se è sbagliato, dillo. Se è buono, dillo — ma solo se lo è davvero. L\'autore è adulto: trattalo da tale.',
+  ].join('\n'),
 
   /* ── INIT ──────────────────────────────── */
   init() {
@@ -869,23 +929,24 @@ Diretto. Senza scuse. Senza "potrebbe essere", "forse si potrebbe considerare". 
   },
 
   loadSettings() {
-    const sysp  = localStorage.getItem(this.K_SYSPROMPT)|| '';
-    const model = localStorage.getItem(this.K_MODEL)    || 'groq|llama-3.3-70b-versatile';
-    const temp  = localStorage.getItem(this.K_TEMP)     || '60';
-    $('sp-sysprompt').value = sysp;
-    $('sp-model').value     = model;
-    $('sp-temp').value      = temp;
+    const sysp    = localStorage.getItem(this.K_SYSPROMPT)    || '';
+    const model   = localStorage.getItem(this.K_MODEL)        || 'groq|llama-3.3-70b-versatile';
+    const modelM  = localStorage.getItem(this.K_MODEL_MISTRAL)|| 'mistral|mistral-large-latest';
+    const temp    = localStorage.getItem(this.K_TEMP)         || '60';
+    $('sp-sysprompt').value    = sysp;
+    $('sp-model').value        = model;
+    $('sp-model-mistral').value= modelM;
+    $('sp-temp').value         = temp;
     $('sp-temp-val').textContent = (parseInt(temp)/100).toFixed(1);
-    // GAS credentials
     $('sp-gas-url').value   = localStorage.getItem(this.K_GAS_URL) || '';
     $('sp-gas-token').value = localStorage.getItem(this.K_GAS_TOK) || '';
   },
 
   saveSettings() {
-    localStorage.setItem(this.K_SYSPROMPT, $('sp-sysprompt').value.trim());
-    localStorage.setItem(this.K_MODEL,     $('sp-model').value);
-    localStorage.setItem(this.K_TEMP,      $('sp-temp').value);
-    // Salva GAS credentials e aggiorna CFG + GasClient al volo
+    localStorage.setItem(this.K_SYSPROMPT,     $('sp-sysprompt').value.trim());
+    localStorage.setItem(this.K_MODEL,          $('sp-model').value);
+    localStorage.setItem(this.K_MODEL_MISTRAL,  $('sp-model-mistral').value);
+    localStorage.setItem(this.K_TEMP,           $('sp-temp').value);
     const gasUrl = $('sp-gas-url').value.trim();
     const gasTok = $('sp-gas-token').value.trim();
     localStorage.setItem(this.K_GAS_URL, gasUrl);
@@ -1288,28 +1349,78 @@ Diretto. Senza scuse. Senza "potrebbe essere", "forse si potrebbe considerare". 
     if (!_gasOk() || !this.gas) {
       this.showModal('Server GAS non configurato', `
         <p>Per usare l'AI devi configurare il server GAS.</p>
-        <p style="margin-top:8px;font-size:13px">Imposta <strong>GAS_URL</strong> e <strong>GAS_TOKEN</strong> nel blocco CFG in cima al file HTML.</p>
-        <p style="margin-top:8px;font-size:13px;color:var(--faint)">Le chiavi Groq/Mistral vanno nelle Script Properties del server GAS, non qui.</p>
+        <p style="margin-top:8px;font-size:13px">Imposta <strong>GAS_URL</strong> e <strong>GAS_TOKEN</strong> nelle Impostazioni ⚙.</p>
       `, [{ label: 'Chiudi', cb: () => this.closeModal() }]);
       return;
     }
-    const originalText = this.selText; // cattura prima che cambi
-    this._openAISheet(type);
-    try {
-      const result = await this._callGAS(type, originalText);
-      this.aiLastResult = result.trim();
-      this._renderAIResult(type, this.aiLastResult);
-      // Log su Sheet in background — non blocca, errori silenziosi
-      this._logToSheet(type, originalText, this.aiLastResult).catch(() => {});
-    } catch(e) {
-      this.aiLastResult = '';
-      this._renderAIError(e.message || 'Errore di rete');
+    const originalText = this.selText;
+    this.currentType   = type;
+    const useCompetition = (type === 'riformula' || type === 'valuta');
+
+    this._openAISheet(type, useCompetition);
+
+    if (!useCompetition) {
+      // Sinonimi / Contrari: un solo provider (Groq)
+      try {
+        const result = await this._callGASProvider('groq', type, originalText);
+        this.aiLastResult = result.trim();
+        this._renderIntoEl($('ai-result-text'), type, this.aiLastResult, 'groq');
+      } catch(e) {
+        this._renderAIError(e.message || 'Errore di rete');
+      }
+      return;
+    }
+
+    // Competizione: chiamate parallele
+    this.aiGroqResult    = ''; this.aiMistralResult    = '';
+    this.aiGroqVariants  = []; this.aiMistralVariants  = [];
+    this.activeTab = 'groq';
+    this._setTabState('groq',    'loading');
+    this._setTabState('mistral', 'loading');
+
+    const [groqRes, mistralRes] = await Promise.allSettled([
+      this._callGASProvider('groq',    type, originalText),
+      this._callGASProvider('mistral', type, originalText),
+    ]);
+
+    // Groq
+    if (groqRes.status === 'fulfilled') {
+      this.aiGroqResult   = groqRes.value.trim();
+      this.aiGroqVariants = this._parseVariants(this.aiGroqResult);
+      this._setTabState('groq', 'done');
+    } else {
+      this.aiGroqResult = '⚠ ' + (groqRes.reason?.message || 'Errore Groq');
+      this._setTabState('groq', 'err');
+    }
+
+    // Mistral
+    if (mistralRes.status === 'fulfilled') {
+      this.aiMistralResult   = mistralRes.value.trim();
+      this.aiMistralVariants = this._parseVariants(this.aiMistralResult);
+      this._setTabState('mistral', 'done');
+    } else {
+      this.aiMistralResult = '⚠ ' + (mistralRes.reason?.message || 'Errore Mistral');
+      this._setTabState('mistral', 'err');
+    }
+
+    // Mostra il tab Groq per default e aggiorna lastResult/Variants
+    this.switchTab('groq');
+
+    // Spinner off
+    $('ai-result').classList.remove('loading');
+    $('ai-spinner').style.display = 'none';
+
+    // Log in background (usa risultato Groq come riferimento)
+    if (this.aiGroqResult && !this.aiGroqResult.startsWith('⚠')) {
+      this._logToSheet(type, originalText, this.aiGroqResult).catch(() => {});
     }
   },
 
-  _openAISheet(type) {
-    $('ai-context-label').textContent = `AI — ${this._typeLabel(type)}`;
-    $('ai-context-text').textContent  = this.selText;
+  _openAISheet(type, competition) {
+    $('ai-context-label').textContent = competition
+      ? `Groq ⚡ vs Mistral ✦ — ${this._typeLabel(type)}`
+      : `AI — ${this._typeLabel(type)}`;
+    $('ai-context-text').textContent = this.selText;
     $('ai-result').classList.add('loading');
     $('ai-result-text').textContent = '';
     $('ai-spinner').style.display   = 'block';
@@ -1317,35 +1428,75 @@ Diretto. Senza scuse. Senza "potrebbe essere", "forse si potrebbe considerare". 
     this.aiLastVariants = [];
     $('ai-overlay').classList.add('open');
     $('ai-sheet').classList.add('open');
-    // Riformula: sostituisci/inserisci nel footer rimangono nascosti
-    // (ogni variante ha il suo bottone); Valuta: footer pieno
+    // Tab bar
+    $('ai-tabs').classList.toggle('open', !!competition);
+    // Footer buttons
     const showFoot = (type !== 'riformula');
     $('ai-btn-replace').style.display = showFoot ? '' : 'none';
     $('ai-btn-insert').style.display  = showFoot ? '' : 'none';
   },
 
-  async _callGAS(type, selectedText) {
-    const modelVal = localStorage.getItem(this.K_MODEL) || 'groq|llama-3.3-70b-versatile';
-    const [provider, ...modelParts] = modelVal.split('|');
-    const model  = modelParts.join('|');
-    const temp   = parseFloat(localStorage.getItem(this.K_TEMP) || '60') / 100;
-    const sysp   = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
+  _setTabState(tab, state) {
+    const el = $(tab === 'groq' ? 'tab-groq' : 'tab-mistral');
+    if (!el) return;
+    el.className = 'ai-tab';
+    if (state === 'loading') el.classList.add('loading-tab');
+    if (state === 'done')    el.classList.add('done-tab');
+    if (state === 'active')  el.classList.add('active');
+  },
+
+  switchTab(tab) {
+    this.activeTab = tab;
+    const groqEl    = $('tab-groq');
+    const mistralEl = $('tab-mistral');
+    if (groqEl && mistralEl) {
+      groqEl.className    = 'ai-tab' + (tab === 'groq'    ? ' active' : ' done-tab');
+      mistralEl.className = 'ai-tab' + (tab === 'mistral' ? ' active' : ' done-tab');
+    }
+    const result   = tab === 'groq' ? this.aiGroqResult    : this.aiMistralResult;
+    const variants = tab === 'groq' ? this.aiGroqVariants  : this.aiMistralVariants;
+    this.aiLastResult   = result;
+    this.aiLastVariants = variants;
+    this._renderIntoEl($('ai-result-text'), this.currentType, result, tab);
+    $('ai-result').classList.remove('loading');
+    $('ai-spinner').style.display = 'none';
+  },
+
+  async _callGASProvider(provider, type, selectedText) {
+    const sysp  = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
+    const temp  = parseFloat(localStorage.getItem(this.K_TEMP) || '60') / 100;
     const prompt = this._buildPrompt(type, selectedText);
-    // Riformula a 7 varianti richiede molto più spazio
-    const maxTok = type === 'riformula' ? 2200
-                 : type === 'valuta'    ? 1400
+    const maxTok = type === 'riformula' ? 3000
+                 : type === 'valuta'    ? 1800
                  : 900;
+
+    // Scegli il modello dal corretto dropdown
+    let model, prov;
+    if (provider === 'groq') {
+      const val = localStorage.getItem(this.K_MODEL) || 'groq|llama-3.3-70b-versatile';
+      [prov, ...rest] = val.split('|'); model = rest.join('|');
+    } else {
+      const val = localStorage.getItem(this.K_MODEL_MISTRAL) || 'mistral|mistral-large-latest';
+      [prov, ...rest] = val.split('|'); model = rest.join('|');
+    }
 
     const res = await this.gas.ai(
       [{ role: 'user', content: prompt }],
-      { system: sysp, temperature: temp, model, provider, max_tokens: maxTok }
+      { system: sysp, temperature: temp, model, provider: prov, max_tokens: maxTok }
     );
-    if (!res.ok) throw new Error(res.error || 'Errore server GAS');
+    if (!res.ok) throw new Error(res.error || `Errore server GAS (${provider})`);
     return res.data?.text || '(risposta vuota)';
+  },
+
+  // mantiene compatibilità con log e sinonimi/contrari
+  async _callGAS(type, selectedText) {
+    return this._callGASProvider('groq', type, selectedText);
   },
 
   _buildPrompt(type, text) {
     const t = text.trim();
+    const len = t.split(/\s+/).length;
+
     switch(type) {
       case 'sinonimi':
         return `Fornisci 8-12 sinonimi precisi per la parola o l'espressione: "${t}"\nRispondi solo con la lista separata da virgole. Zero introduzioni, zero spiegazioni.`;
@@ -1354,37 +1505,56 @@ Diretto. Senza scuse. Senza "potrebbe essere", "forse si potrebbe considerare". 
         return `Fornisci 6-10 contrari precisi per la parola o l'espressione: "${t}"\nRispondi solo con la lista separata da virgole. Zero introduzioni, zero spiegazioni.`;
 
       case 'riformula':
-        return `Riformula il testo in 7 versioni numerate. Regole ferme:
+        return `Riformula L'INTERO testo seguente in 7 versioni numerate.
 
-1. DIRETTA — frase attiva, soggetto in testa, niente subordinate.
-2. INVERTITA — struttura ribaltata, elemento più forte in apertura.
-3. NOMINALE — massima compressione, verbi ridotti al minimo.
-4. RITMO LENTO — frase distesa, legata con punto e virgola.
-5. RITMO INCALZANTE — frasi brevi a raffica, senza connettivi.
-6. REGISTRO ALTO — lessico ricercato, periodo controllato.
-7. ORIGINALE CORRETTO — il testo originale con sola correzione della punteggiatura secondo le regole dell'Accademia della Crusca: virgola solo per incisi o stacchi netti; punto e virgola per legare autonomie con legame logico; due punti per spiegare o introdurre; niente virgola tra soggetto e predicato. Non cambiare nemmeno una parola: correggi solo la punteggiatura.
+REGOLE ASSOLUTE — violarne una invalida il risultato:
+- Ogni versione deve contenere L'INTERO testo originale: nessuna parte omessa, nessun troncamento, nessun "[...]".
+- Il testo originale ha circa ${len} parole. Ogni versione deve avere almeno ${Math.round(len*0.8)} parole.
+- Non aggiungere parole, commenti, titoli o note al di fuori delle 7 versioni numerate.
+- Non accorciare, non riassumere: riformula, mantieni la lunghezza.
 
-Formato risposta:
-1. [testo]
-2. [testo]
-3. [testo]
-4. [testo]
-5. [testo]
-6. [testo]
-7. [testo]
+LE 7 VERSIONI:
+1. DIRETTA — soggetto in testa, verbo attivo, zero subordinate. Stessa lunghezza dell'originale.
+2. INVERTITA — l'elemento più importante va in apertura. Struttura ribaltata. Stessa lunghezza.
+3. NOMINALE — compressione massima con frasi nominali; verbi ridotti al minimo. Stessa lunghezza.
+4. RITMO LENTO — frasi distese legate da punto e virgola; nessuna fretta; ogni concetto respira. Stessa lunghezza.
+5. RITMO INCALZANTE — frasi brevi secche, senza connettivi; una dopo l'altra senza pausa. Stessa lunghezza.
+6. REGISTRO ALTO — lessico preciso e ricercato, non gonfio; periodo controllato e sorvegliato. Stessa lunghezza.
+7. ORIGINALE CORRETTO — copia esatta dell'originale con sola correzione della punteggiatura (Accademia della Crusca): virgola solo per incisi o stacchi netti; punto e virgola per legare autonomie con legame logico; due punti per spiegare o introdurre. Zero modifiche al lessico.
 
-Testo da riformulare:
+FORMATO RISPOSTA — solo questo, nient'altro:
+1. [testo completo]
+2. [testo completo]
+3. [testo completo]
+4. [testo completo]
+5. [testo completo]
+6. [testo completo]
+7. [testo completo]
+
+TESTO DA RIFORMULARE (riformula tutto, dall'inizio alla fine):
 "${t}"`;
 
       case 'valuta':
-        return `Analizza questo testo. Sii diretto, senza complimenti vuoti. Struttura così:
+        return `Analizza questo testo come un editor di mestiere. Diretto, senza gentilezze inutili.
 
-PUNTEGGIATURA — elenca ogni errore o uso discutibile con la regola violata (Accademia della Crusca). Se è tutto corretto, dillo senza paura.
-STILE — cosa funziona e cosa no. Un esempio concreto per ogni punto critico.
-RITMO — il testo accelera, rallenta, è piatto? Dove e perché.
-SUGGERIMENTO — una sola cosa da fare adesso, la più urgente. Riscrivila tu, mostra come.
+STRUTTURA DELLA RISPOSTA — esatta, in quest'ordine:
 
-Testo:
+VOTO: [numero]/10
+GIUDIZIO: [una sola frase, massimo 15 parole, che dice tutto]
+
+PUNTEGGIATURA
+[Ogni errore reale con la regola violata (Accademia della Crusca). Se è corretto, scrivi "Corretta." e basta. Non inventare problemi.]
+
+STILE
+[Cosa funziona: una cosa sola, concreta. Cosa non funziona: una cosa sola, concreta. Niente liste da tre punti.]
+
+RITMO
+[Il testo accelera, rallenta, è piatto? Dove esattamente e perché. Una frase.]
+
+VERSIONE DELL'EDITOR
+[Qui riscrivi L'INTERO testo — dall'inizio alla fine, nessuna parte omessa — nella tua versione migliore. Stessa voce, stesso registro, stesso significato. Non riassumere: riscrivi tutto. Il testo originale ha circa ${len} parole: la tua versione deve averne almeno ${Math.round(len*0.85)}.]
+
+TESTO:
 "${t}"`;
 
       default:
@@ -1393,11 +1563,10 @@ Testo:
   },
 
   _typeLabel(type) {
-    return { sinonimi:'Sinonimi', contrari:'Contrari', riformula:'Riformulazioni', valuta:'Valutazione del periodo' }[type] || type;
+    return { sinonimi:'Sinonimi', contrari:'Contrari', riformula:'Riformulazioni', valuta:'Valutazione' }[type] || type;
   },
 
   _parseVariants(text) {
-    // Estrae le varianti numerate 1.–7. dal testo del modello
     const lines = text.split('\n');
     const variants = [];
     let current = null;
@@ -1414,57 +1583,105 @@ Testo:
     return variants;
   },
 
-  _renderAIResult(type, text) {
+  // Renderer centrale — scrive in qualsiasi elemento target
+  _renderIntoEl(el, type, text, provider) {
+    if (!el) return;
     $('ai-result').classList.remove('loading');
     $('ai-spinner').style.display = 'none';
-    const el = $('ai-result-text');
-
+    if (!text) { el.innerHTML = ''; return; }
+    if (text.startsWith('⚠')) {
+      el.innerHTML = `<span style="color:var(--danger);font-size:14px">${esc(text)}</span>`;
+      return;
+    }
     if (type === 'sinonimi' || type === 'contrari') {
       const items = text.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean);
       el.innerHTML = items.map(w =>
         `<span onclick="App._applyWord('${esc(w)}')" style="display:inline-block;margin:3px 4px 3px 0;padding:4px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--text);cursor:pointer;font-size:15px;transition:background .15s" onmouseover="this.style.background='var(--surf3)'" onmouseout="this.style.background=''">${esc(w)}</span>`
       ).join('');
-
-    } else if (type === 'riformula') {
+      return;
+    }
+    if (type === 'riformula') {
       const LABELS = ['Diretta','Invertita','Nominale','Ritmo lento','Ritmo incalzante','Registro alto','Originale corretto'];
-      const variants = this._parseVariants(text);
-      this.aiLastVariants = variants;
-
+      const variants = (provider === 'mistral') ? this.aiMistralVariants : this.aiGroqVariants;
       if (variants.length > 1) {
         el.innerHTML = variants.map((v, i) => {
           const isLast = (i === 6);
           const label  = LABELS[i] || `Variante ${i+1}`;
-          const borderColor = isLast ? 'var(--accent)' : 'var(--ai2)';
-          const labelColor  = isLast ? 'var(--accent)' : 'var(--ai)';
-          const badge       = isLast
-            ? `<span style="font-size:9px;background:rgba(200,168,74,.15);color:var(--accent);border:1px solid var(--accent2);border-radius:10px;padding:1px 7px;margin-left:6px;letter-spacing:.08em">PUNTEGGIATURA</span>`
+          const bc = isLast ? 'var(--accent)' : 'var(--ai2)';
+          const lc = isLast ? 'var(--accent)' : 'var(--ai)';
+          const badge = isLast
+            ? `<span style="font-size:9px;background:rgba(200,168,74,.15);color:var(--accent);border:1px solid var(--accent2);border-radius:10px;padding:1px 7px;margin-left:6px">PUNTEGGIATURA</span>`
             : `<span style="font-size:9px;color:var(--faint);margin-left:4px">${i+1}/7</span>`;
-          return `
-            <div style="border-left:2px solid ${borderColor};padding:8px 10px;margin-bottom:10px;border-radius:0 4px 4px 0;background:rgba(0,0,0,.1)">
+          return `<div style="border-left:2px solid ${bc};padding:8px 10px;margin-bottom:10px;border-radius:0 4px 4px 0;background:rgba(0,0,0,.1)">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-                <span style="font-size:10px;color:${labelColor};font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase">${label}${badge}</span>
-                <button onclick="App._applyVariant(${i})" style="font-size:11px;padding:2px 9px;min-height:24px;color:${labelColor};border-color:${borderColor};background:transparent;border:1px solid;border-radius:3px;cursor:pointer">Usa</button>
+                <span style="font-size:10px;color:${lc};font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase">${label}${badge}</span>
+                <button onclick="App._applyVariantFrom(${i},'${provider}')" style="font-size:11px;padding:2px 9px;min-height:24px;color:${lc};border-color:${bc};background:transparent;border:1px solid;border-radius:3px;cursor:pointer">Usa</button>
               </div>
-              <div style="font-family:'Crimson Pro',Georgia,serif;font-size:15.5px;line-height:1.8;color:var(--ed-fg);white-space:pre-wrap;word-break:break-word">${esc(v)}</div>
+              <div style="font-family:'Crimson Pro',Georgia,serif;font-size:15.5px;line-height:1.88;color:var(--ed-fg);white-space:pre-wrap;word-break:break-word">${esc(v)}</div>
             </div>`;
         }).join('');
       } else {
-        el.textContent = text; // fallback se il parse fallisce
+        el.textContent = text;
       }
-
-    } else {
-      // valuta — testo strutturato plain
-      el.textContent = text;
+      return;
     }
+    if (type === 'valuta') {
+      const votoMatch    = text.match(/VOTO\s*:\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i);
+      const giudizioM    = text.match(/GIUDIZIO\s*:\s*(.+)/i);
+      const editorM      = text.match(/VERSIONE DELL'EDITOR\s*\n([\s\S]+)$/i);
+      let html = '';
+      if (votoMatch || giudizioM) {
+        const score = votoMatch ? votoMatch[1].replace(',','.') : '—';
+        const giudizio = giudizioM ? giudizioM[1].trim() : '';
+        const n = parseFloat(score);
+        const col = n >= 7 ? 'var(--ok)' : n >= 5 ? 'var(--accent)' : 'var(--danger)';
+        html += `<div class="ai-score-badge">
+          <span class="ai-score-num" style="color:${col}">${score}<span style="font-size:14px;color:var(--faint)">/10</span></span>
+          <span class="ai-score-label">${esc(giudizio)}</span>
+        </div>`;
+      }
+      const body = text
+        .replace(/VOTO\s*:\s*.+\n?/i,'')
+        .replace(/GIUDIZIO\s*:\s*.+\n?/i,'')
+        .replace(/VERSIONE DELL'EDITOR[\s\S]*/i,'')
+        .trim();
+      if (body) html += `<div style="white-space:pre-wrap;word-break:break-word;font-size:14.5px;line-height:1.78;color:var(--ed-fg);margin-bottom:14px">${esc(body)}</div>`;
+      if (editorM) {
+        const ev = editorM[1].trim();
+        if (provider === 'groq')    this._groqEditorVersion    = ev;
+        if (provider === 'mistral') this._mistralEditorVersion = ev;
+        const provAttr = provider === 'mistral' ? 'mistral' : 'groq';
+        html += `<div class="ai-editor-version"><div class="ai-editor-version-label">✍ Versione dell'editor</div>${esc(ev)}</div>`
+              + `<div style="margin-top:10px"><button data-prov="${provAttr}" onclick="App._applyEditorVersion(this.dataset.prov)" style="font-size:12px;padding:4px 12px;min-height:28px;color:var(--accent);border:1px solid var(--accent2);background:rgba(200,168,74,.08);border-radius:3px;cursor:pointer">↩ Usa versione editor</button></div>`;
+      }
+      el.innerHTML = html || `<span style="white-space:pre-wrap">${esc(text)}</span>`;
+      return;
+    }
+    el.textContent = text;
   },
 
-  _applyVariant(idx) {
-    const v = this.aiLastVariants[idx];
+  // Compatibilità con codice esistente (sinonimi/contrari)
+  _renderAIResult(type, text) {
+    this._renderIntoEl($('ai-result-text'), type, text, 'groq');
+  },
+
+  _applyVariantFrom(idx, provider) {
+    const variants = provider === 'mistral' ? this.aiMistralVariants : this.aiGroqVariants;
+    const v = variants[idx];
     if (!v) return;
     this._replaceSelection(v);
     this.closeAI();
     const label = ['Diretta','Invertita','Nominale','Ritmo lento','Ritmo incalzante','Registro alto','Originale corretto'][idx] || `Variante ${idx+1}`;
-    this.msg(`Variante "${label}" inserita`, 'ok');
+    this.msg(`Variante "${label}" (${provider}) inserita`, 'ok');
+    setTimeout(() => this.msg('—',''), 2500);
+  },
+
+  _applyEditorVersion(provider) {
+    const v = provider === 'mistral' ? this._mistralEditorVersion : this._groqEditorVersion;
+    if (!v) return;
+    this._replaceSelection(v);
+    this.closeAI();
+    this.msg(`Versione editor (${provider}) inserita`, 'ok');
     setTimeout(() => this.msg('—',''), 2500);
   },
 
@@ -1472,22 +1689,13 @@ Testo:
   async _logToSheet(type, original, result) {
     if (!this.gas) return;
     if (type === 'riformula') {
-      const variants = this.aiLastVariants.length
-        ? this.aiLastVariants
-        : this._parseVariants(result);
-      // Assicura 7 elementi (padding se il modello ne restituisce meno)
+      const variants = this.aiGroqVariants.length ? this.aiGroqVariants : this._parseVariants(result);
       const padded = Array.from({length:7}, (_,i) => variants[i] || '');
       const res = await this.gas.scriptorium_log_riformula(original, padded);
-      if (res?.ok) {
-        this.msg('✓ salvato su Sheet Riformulazioni', 'ok');
-        setTimeout(() => this.msg('—',''), 3000);
-      }
+      if (res?.ok) { this.msg('✓ salvato su Sheet Riformulazioni', 'ok'); setTimeout(()=>this.msg('—',''),3000); }
     } else if (type === 'valuta') {
       const res = await this.gas.scriptorium_log_valuta(original, result);
-      if (res?.ok) {
-        this.msg('✓ salvato su Sheet Valutazioni', 'ok');
-        setTimeout(() => this.msg('—',''), 3000);
-      }
+      if (res?.ok) { this.msg('✓ salvato su Sheet Valutazioni', 'ok'); setTimeout(()=>this.msg('—',''),3000); }
     }
   },
 
@@ -1506,7 +1714,6 @@ Testo:
   },
 
   aiReplace() {
-    // Per riformula ogni variante ha il suo bottone; questo footer serve per valuta/altri
     if (!this.aiLastResult) return;
     this._replaceSelection(this.aiLastResult);
     this.closeAI();
