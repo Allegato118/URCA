@@ -296,7 +296,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 }
 .sp-input:focus { border-color: var(--ai2); }
 .sp-input::placeholder { color: var(--faint); font-style: italic; }
-.sp-textarea, #sp-gas-url, #sp-gas-token {
+.sp-textarea, #sp-gas-url, #sp-gas-token, #sp-sheet-url {
   width: 100%; min-height: 130px; resize: vertical;
   background: var(--ed-bg); border: 1px solid var(--border); color: var(--text);
   padding: 10px 11px; border-radius: var(--r); font-size: 14px;
@@ -690,6 +690,18 @@ URCA è un framework valoriale costruito su quattro principi: Umiltà (consapevo
     </div>
 
     <div class="sp-section">
+      <label class="sp-label">Google Sheet — URL</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="url" id="sp-sheet-url" class="sp-textarea"
+          placeholder="https://docs.google.com/spreadsheets/d/…/edit"
+          autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false"
+          style="flex:1;font-family:monospace;font-size:12px;padding:8px 10px;height:auto">
+        <button class="sm" onclick="App.openSheet()" title="Apri Google Sheet" style="white-space:nowrap;flex-shrink:0">↗ Apri</button>
+      </div>
+      <p class="sp-note">URL del Google Sheet dove Scritorium salva i log. Il tasto ↗ lo apre direttamente. Leggibile anche da <span style="font-family:monospace;font-size:11px">cfg.env</span> con la chiave <span style="font-family:monospace;font-size:11px">URCA_Sheet</span>.</p>
+    </div>
+
+    <div class="sp-section">
       <label class="sp-label">Autosave su Drive</label>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text)">
@@ -870,6 +882,7 @@ const App = {
   K_RIFORM_MASK:  'scr3:riform_mask',
   K_AUTOSAVE_DR:  'scr3:autosave_drive',
   K_CONTEXT:      'scr3:context',
+  K_SHEET_URL:    'scr3:sheet_url',
   MAX_V:     60,
   MAX_AUTO:  4,
   MAX_UNDO:  25,
@@ -985,6 +998,8 @@ const App = {
     $('sp-temp-val').textContent = (parseInt(temp)/100).toFixed(1);
     $('sp-gas-url').value   = localStorage.getItem(this.K_GAS_URL) || '';
     $('sp-gas-token').value = localStorage.getItem(this.K_GAS_TOK) || '';
+    const sheetUrlEl = document.getElementById('sp-sheet-url');
+    if (sheetUrlEl) sheetUrlEl.value = localStorage.getItem(this.K_SHEET_URL) || '';
     const ctxEl = document.getElementById('sp-context');
     if (ctxEl) ctxEl.value = localStorage.getItem(this.K_CONTEXT) || '';
 
@@ -1021,6 +1036,8 @@ const App = {
     const gasTok = $('sp-gas-token').value.trim();
     localStorage.setItem(this.K_GAS_URL, gasUrl);
     localStorage.setItem(this.K_GAS_TOK, gasTok);
+    const sheetUrlSave = document.getElementById('sp-sheet-url');
+    if (sheetUrlSave) localStorage.setItem(this.K_SHEET_URL, sheetUrlSave.value.trim());
     CFG.GAS_URL   = gasUrl;
     CFG.GAS_TOKEN = gasTok;
     this.gas = _gasOk() ? new GasClient(CFG.GAS_URL, CFG.GAS_TOKEN) : null;
@@ -1893,15 +1910,17 @@ TESTO:
           parsed[key] = val;
           if (!parsed[key.toLowerCase()]) parsed[key.toLowerCase()] = val;
         }
-        const url = parsed['GAS_URL']   || parsed['gas_url']   || '';
-        const tok = parsed['GAS_TOKEN'] || parsed['gas_token'] || '';
-        const sysp= parsed['SP-PROMPT']  || parsed['sp-prompt']  || '';
-        const ctx = parsed['SP-CONTEXT'] || parsed['sp-context'] || '';
+        const url      = parsed['GAS_URL']    || parsed['gas_url']    || '';
+        const tok      = parsed['GAS_TOKEN']  || parsed['gas_token']  || '';
+        const sysp     = parsed['SP-PROMPT']  || parsed['sp-prompt']  || '';
+        const ctx      = parsed['SP-CONTEXT'] || parsed['sp-context'] || '';
+        const sheetUrl = parsed['URCA_Sheet'] || parsed['urca_sheet'] || '';
 
-        if (url) $('sp-gas-url').value = url;
-        if (tok) $('sp-gas-token').value = tok;
-        if (sysp) $('sp-sysprompt').value = sysp;
-        if (ctx) $('sp-context').value = ctx;
+        if (url)      $('sp-gas-url').value = url;
+        if (tok)      $('sp-gas-token').value = tok;
+        if (sysp)     $('sp-sysprompt').value = sysp;
+        if (ctx)      $('sp-context').value = ctx;
+        if (sheetUrl) { const el = document.getElementById('sp-sheet-url'); if (el) el.value = sheetUrl; }
 
         this.openSettings();
         this.msg('cfg.env caricato — controlla ⚙ e premi Salva', 'ok');
@@ -2038,6 +2057,13 @@ TESTO:
   openSettings()   { $('settings-overlay').classList.add('open'); $('settings-panel').classList.add('open'); },
   closeSettings()  { $('settings-overlay').classList.remove('open'); $('settings-panel').classList.remove('open'); },
   closeAI()        { $('ai-overlay').classList.remove('open'); $('ai-sheet').classList.remove('open'); },
+
+  openSheet() {
+    const el  = document.getElementById('sp-sheet-url');
+    const url = (el ? el.value.trim() : '') || localStorage.getItem(this.K_SHEET_URL) || '';
+    if (!url) { this.msg('Nessun URL Sheet configurato — vai in ⚙ Impostazioni', 'warn'); setTimeout(()=>this.msg('—',''),3000); return; }
+    window.open(url, '_blank', 'noopener');
+  },
 
   renderList() {
     const el = $('vlist');
