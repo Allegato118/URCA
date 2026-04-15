@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM v6 — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM v12 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -469,7 +469,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-  <span id="logo">Script V11.0 (Ert)</span>
+  <span id="logo">Script V12.0 (Ert)</span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -1757,7 +1757,7 @@ TESTO:
         // Avviso se alcune sono nascoste
         const hidden = 7 - visible.length;
         if (hidden > 0) {
-          el.innerHTML += `<p style="font-size:11px;color:var(--faint);text-align:center;margin-top:4px">${hidden} variante${hidden>1?'':'/'} nascosta${hidden>1?'i':''} — modifica in ⚙ Impostazioni</p>`;
+          el.innerHTML += `<p style="font-size:11px;color:var(--faint);text-align:center;margin-top:4px">${hidden} variante${hidden>1?'/':'/'} nascosta${hidden>1?'i':''} — modifica in ⚙ Impostazioni</p>`;
         }
       } else {
         el.innerHTML = `<p style="color:var(--faint);font-size:13px;text-align:center;padding:20px">Nessuna variante selezionata.<br>Vai in ⚙ Impostazioni → Riformulazioni visibili.</p>`;
@@ -1902,26 +1902,43 @@ TESTO:
     const f = ev.target.files[0]; if (!f) return;
     const r = new FileReader();
     r.onload = e => {
-      // ── cfg.env: carica credenziali GAS senza toccare il testo ──
+      // ── cfg.env: carica credenziali GAS e impostazioni AI ──
       if (f.name.toLowerCase() === 'cfg.env') {
+        const content = e.target.result;
         const parsed = {};
-        e.target.result.split(/\r?\n/).forEach(line => {
+        // Parser .env robusto: supporta valori con virgolette e spazi
+        const lines = content.split(/\r?\n/);
+        for (let line of lines) {
           line = line.trim();
-          if (!line || line.startsWith('#')) return;
+          if (!line || line.startsWith('#')) continue;
           const eq = line.indexOf('=');
-          if (eq < 1) return;
-          parsed[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
-        });
+          if (eq < 1) continue;
+          let key = line.slice(0, eq).trim();
+          let val = line.slice(eq + 1).trim();
+          // Rimuovi virgolette esterne (doppie o singole)
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          // Rimuovi eventuali spazi iniziali/finali dopo le virgolette
+          val = val.trim();
+          parsed[key] = val;
+          // versione lowercase per fallback
+          if (!parsed[key.toLowerCase()]) parsed[key.toLowerCase()] = val;
+        }
         const url = parsed['GAS_URL']   || parsed['gas_url']   || '';
         const tok = parsed['GAS_TOKEN'] || parsed['gas_token'] || '';
-        if (!url && !tok) {
-          this.msg('cfg.env: GAS_URL e GAS_TOKEN non trovati', 'err'); return;
-        }
-        if (url) $('sp-gas-url').value   = url;
+        const sysp= parsed['SP-PROMPT']  || parsed['sp-prompt']  || '';
+        const ctx = parsed['SP-CONTEXT'] || parsed['sp-context'] || '';
+
+        if (url) $('sp-gas-url').value = url;
         if (tok) $('sp-gas-token').value = tok;
+        if (sysp) $('sp-sysprompt').value = sysp;
+        if (ctx) $('sp-context').value = ctx;
+
         this.openSettings();
         this.msg('cfg.env caricato — controlla ⚙ e premi Salva', 'ok');
-        ev.target.value = ''; return;
+        ev.target.value = '';
+        return;
       }
       // ── file normale: carica nel editor ──
       if (this.text.trim()) this._push(`Prima di ${f.name}`, false);
