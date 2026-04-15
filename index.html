@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM v12 — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM v13 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -22,7 +22,7 @@ const CFG = { GAS_URL: '', GAS_TOKEN: '' };
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
-/* ── TOKENS ─────────────────────────────── */
+/* ── TOKENS (identico a V12) ─────────────────────────────── */
 :root {
   --bg:       #111009;
   --surf:     #1c1a15;
@@ -469,7 +469,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-  <span id="logo">Script V12.0 (Ert)</span>
+  <span id="logo">Script V13.0 (Ert)</span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -504,7 +504,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   <button class="icon" onclick="App.openDrawer()" title="Versioni">⊞</button>
 </div>
 
-<input type="file" id="file-input" accept=".txt,.md,.env" onchange="App.onFileSelect(event)">
+<input type="file" id="file-input" accept=".txt,.md,.env,.env.txt,*/*" onchange="App.onFileSelect(event)">
 
 <!-- ── FIND STRIP ── -->
 <div id="find-strip" class="strip">
@@ -797,14 +797,9 @@ class GasClient {
   scriptorium_save(text, label)       { return this.call('scriptorium.save', { text, label }); }
   scriptorium_list()                  { return this.call('scriptorium.list'); }
   scriptorium_load(fileId)            { return this.call('scriptorium.load', { fileId }); }
-  // Sheet logging — fire & forget, non bloccano la UI
-  // GAS deve gestire: scriptorium.log_riformula → foglio "Riformulazioni"
-  //   colonne: Timestamp | Originale | Diretta | Invertita | Nominale | Ritmo lento | Ritmo incalzante | Registro alto | Originale corretto | Modello
   scriptorium_log_riformula(original, variants, model) {
     return this.call('scriptorium.log_riformula', { original, variants, model: model || '' });
   }
-  // GAS deve gestire: scriptorium.log_valuta → foglio "Valutazioni"
-  //   colonne: Timestamp | Originale | Critica | Modello
   scriptorium_log_valuta(original, critique, model) {
     return this.call('scriptorium.log_valuta', { original, critique, model: model || '' });
   }
@@ -855,9 +850,12 @@ const App = {
   undoTimer:     null,
   gas:           null,
   markPos:       0,
-  driveAutoTimer: null,   // timer autosave Drive
+  driveAutoTimer: null,
   _groqEditorVersion:    '',
   _mistralEditorVersion: '',
+  // flag per logging singolo per sessione AI
+  _loggedGroq:    false,
+  _loggedMistral: false,
 
   /* config */
   K_TEXT:         'scr3:text',
@@ -871,7 +869,7 @@ const App = {
   K_MARK:         'scr3:mark',
   K_RIFORM_MASK:  'scr3:riform_mask',
   K_AUTOSAVE_DR:  'scr3:autosave_drive',
-  K_CONTEXT:      'scr3:context',      // contesto progetto (URCA synopsis ecc.)
+  K_CONTEXT:      'scr3:context',
   MAX_V:     60,
   MAX_AUTO:  4,
   MAX_UNDO:  25,
@@ -906,7 +904,6 @@ const App = {
 
   /* ── INIT ──────────────────────────────── */
   init() {
-    // Carica credenziali GAS da localStorage (mai nel sorgente)
     CFG.GAS_URL   = localStorage.getItem('scr3:gas_url')   || '';
     CFG.GAS_TOKEN = localStorage.getItem('scr3:gas_token') || '';
     if (_gasOk()) {
@@ -918,11 +915,9 @@ const App = {
     this.loadSettings();
     this.resetAutoTimer();
 
-    // Avvia autosave Drive se attivo
     const autoOn = localStorage.getItem(this.K_AUTOSAVE_DR) === 'on';
     if (autoOn) this._setupDriveAutoSave(true);
 
-    // push initial undo state
     this._pushUndo(this.text);
 
     document.addEventListener('keydown', e => {
@@ -937,12 +932,10 @@ const App = {
       }
     });
 
-    // temperature slider
     $('sp-temp').addEventListener('input', () => {
       $('sp-temp-val').textContent = (parseInt($('sp-temp').value)/100).toFixed(1);
     });
 
-    // iOS: persist on hide
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') this.persist();
     });
@@ -957,7 +950,6 @@ const App = {
       this.versions = JSON.parse(localStorage.getItem(this.K_VERS) || '[]');
       this.markPos  = parseInt(localStorage.getItem(this.K_MARK) || '0') || 0;
       $('editor').value = this.text;
-      // Auto-scroll al segnalibro alla riapertura
       if (this.markPos > 0) {
         setTimeout(() => { this._scrollToMark(); this._updateMarkStrip(); }, 300);
       } else {
@@ -984,7 +976,7 @@ const App = {
     const modelM  = localStorage.getItem(this.K_MODEL_MISTRAL)|| 'mistral|mistral-large-latest';
     const temp    = localStorage.getItem(this.K_TEMP)         || '60';
     const autodr  = localStorage.getItem(this.K_AUTOSAVE_DR)  || 'off';
-    const mask    = parseInt(localStorage.getItem(this.K_RIFORM_MASK) ?? '127') || 127; // 0b1111111
+    const mask    = parseInt(localStorage.getItem(this.K_RIFORM_MASK) ?? '127') || 127;
 
     $('sp-sysprompt').value    = sysp;
     $('sp-model').value        = model;
@@ -996,11 +988,9 @@ const App = {
     const ctxEl = document.getElementById('sp-context');
     if (ctxEl) ctxEl.value = localStorage.getItem(this.K_CONTEXT) || '';
 
-    // Autosave Drive
     const asDrEl = document.getElementById('sp-autosave-drive');
     if (asDrEl) asDrEl.checked = (autodr === 'on');
 
-    // Riformulazioni checkboxes
     document.querySelectorAll('.rif-chk').forEach(cb => {
       const idx = parseInt(cb.dataset.idx);
       cb.checked = !!(mask & (1 << idx));
@@ -1015,18 +1005,16 @@ const App = {
     const ctxEl = document.getElementById('sp-context');
     if (ctxEl) localStorage.setItem(this.K_CONTEXT, ctxEl.value.trim());
 
-    // Autosave Drive
     const asDrEl = document.getElementById('sp-autosave-drive');
     const autoOn = asDrEl ? asDrEl.checked : false;
     localStorage.setItem(this.K_AUTOSAVE_DR, autoOn ? 'on' : 'off');
     this._setupDriveAutoSave(autoOn);
 
-    // Riformulazioni mask
     let mask = 0;
     document.querySelectorAll('.rif-chk').forEach(cb => {
       if (cb.checked) mask |= (1 << parseInt(cb.dataset.idx));
     });
-    if (mask === 0) mask = 127; // sicurezza: almeno una
+    if (mask === 0) mask = 127;
     localStorage.setItem(this.K_RIFORM_MASK, mask);
 
     const gasUrl = $('sp-gas-url').value.trim();
@@ -1041,7 +1029,6 @@ const App = {
     this.closeSettings();
   },
 
-  /* ── TEST GAS ───────────────────────────── */
   async testGAS() {
     if (!_gasOk()) {
       const el = document.getElementById('sp-gas-status');
@@ -1060,7 +1047,6 @@ const App = {
     }
   },
 
-  /* ── DRIVE AUTOSAVE ─────────────────────── */
   _setupDriveAutoSave(enable) {
     clearInterval(this.driveAutoTimer);
     this.driveAutoTimer = null;
@@ -1092,7 +1078,6 @@ const App = {
     } catch(_) { /* silenzioso */ }
   },
 
-  /* ── RIFORMULA MASK ─────────────────────── */
   getRiformMask() {
     return parseInt(localStorage.getItem(this.K_RIFORM_MASK) ?? '127') || 127;
   },
@@ -1101,7 +1086,6 @@ const App = {
     document.querySelectorAll('.rif-chk').forEach(cb => cb.checked = checked);
   },
 
-  /* ── EDITOR INPUT ───────────────────────── */
   onInput() {
     this.text = $('editor').value;
     this.updateStats();
@@ -1135,16 +1119,13 @@ const App = {
     $('st-undo-n').textContent = this.undoPtr;
   },
 
-  /* ── UNDO / REDO ────────────────────────── */
   _scheduleUndo() {
     clearTimeout(this.undoTimer);
     this.undoTimer = setTimeout(() => this._pushUndo(this.text), 600);
   },
 
   _pushUndo(text) {
-    // discard any states ahead of pointer (redo history)
     this.undoStack = this.undoStack.slice(0, this.undoPtr + 1);
-    // avoid duplicate of current
     if (this.undoStack.length && this.undoStack[this.undoStack.length-1] === text) return;
     this.undoStack.push(text);
     if (this.undoStack.length > this.MAX_UNDO)
@@ -1173,10 +1154,8 @@ const App = {
     setTimeout(() => this.msg('—', ''), 2000);
   },
 
-  /* ── BOOKMARK / SEGNALIBRO REVIEW ───────── */
   setMark() {
     const ta  = $('editor');
-    // Usa il cursore se disponibile, altrimenti lo scrollTop corrente
     const pos = (ta.selectionStart !== ta.selectionEnd)
       ? ta.selectionStart
       : ta.selectionStart;
@@ -1209,12 +1188,10 @@ const App = {
   _scrollToMark() {
     const ta  = $('editor');
     const pos = Math.min(this.markPos, this.text.length);
-    // Calcola la riga in cui si trova la posizione
     const before = this.text.slice(0, pos);
     const linesBefore = (before.match(/\n/g) || []).length;
     const lh = parseFloat(getComputedStyle(ta).lineHeight) || 34;
     const pt = parseFloat(getComputedStyle(ta).paddingTop) || 28;
-    // Centra verticalmente il punto nel viewport
     ta.scrollTop = Math.max(0, linesBefore * lh + pt - ta.clientHeight / 2.5);
   },
 
@@ -1233,7 +1210,6 @@ const App = {
     strip.classList.add('open');
     if (goBtn) goBtn.style.display = '';
 
-    // Contesto: ~40 caratteri intorno al marcatore
     const safePos = Math.min(this.markPos, this.text.length);
     const start   = Math.max(0, safePos - 40);
     const end     = Math.min(this.text.length, safePos + 40);
@@ -1241,7 +1217,6 @@ const App = {
     const after   = this.text.slice(safePos, end).replace(/\n/g,' ');
     $('mark-context').textContent = '…' + before + '|' + after + '…';
 
-    // Percentuale e numero paragrafo
     const pct        = this.text.length > 0 ? Math.round(safePos / this.text.length * 100) : 0;
     const wordsBefore = this.text.slice(0, safePos).trim().split(/\s+/).filter(Boolean).length;
     $('mark-pct').textContent = `${pct}% · ${wordsBefore.toLocaleString('it')} par.`;
@@ -1249,7 +1224,6 @@ const App = {
     if (stMarkV) stMarkV.textContent = `${pct}%`;
   },
 
-  /* ── AUTO-SAVE ──────────────────────────── */
   resetAutoTimer() {
     clearTimeout(this.autoTimer);
     this.autoTimer = setTimeout(() => this.doAuto(), 90_000);
@@ -1262,7 +1236,6 @@ const App = {
     this.resetAutoTimer();
   },
 
-  /* ── SNAPSHOTS ──────────────────────────── */
   saveSnapshot() {
     if (!this.text.trim()) { this.msg('testo vuoto', 'warn'); return; }
     const inp   = $('save-lbl');
@@ -1348,7 +1321,6 @@ const App = {
     ]);
   },
 
-  /* ── DIFF ───────────────────────────────── */
   showDiff(id) {
     const v = this.versions.find(x=>x.id===id); if (!v) return;
     this.diffId = id;
@@ -1379,7 +1351,6 @@ const App = {
     $('btn-dc-mob').style.display = 'none';
   },
 
-  /* ── FIND / REPLACE ─────────────────────── */
   toggleFind() {
     const bar = $('find-strip');
     if (bar.classList.contains('open')) this.closeFind();
@@ -1442,7 +1413,6 @@ const App = {
     } catch(_) {}
   },
 
-  /* ── SELECTION ──────────────────────────── */
   onSelUp() {
     setTimeout(() => {
       const ta = $('editor');
@@ -1466,7 +1436,7 @@ const App = {
   },
   _hideSelBar() { $('sel-bar').classList.remove('open'); },
 
-  /* ── GROQ AI ────────────────────────────── */
+  /* ── AI ────────────────────────────────── */
   async aiAction(type) {
     if (!this.selText) { this.msg('Seleziona prima del testo', 'warn'); return; }
     if (!_gasOk() || !this.gas) {
@@ -1481,20 +1451,24 @@ const App = {
     const useCompetition = (type === 'riformula' || type === 'valuta');
 
     this._openAISheet(type, useCompetition);
+    // Reset logging flags per questa sessione
+    this._loggedGroq    = false;
+    this._loggedMistral = false;
 
     if (!useCompetition) {
-      // Sinonimi / Contrari: un solo provider (Groq)
       try {
         const result = await this._callGASProvider('groq', type, originalText);
         this.aiLastResult = result.trim();
         this._renderIntoEl($('ai-result-text'), type, this.aiLastResult, 'groq');
+        // Log automatico per sinonimi/contrari (solo Groq)
+        await this._logToSheetForProvider(type, originalText, result, 'groq');
       } catch(e) {
         this._renderAIError(e.message || 'Errore di rete');
       }
       return;
     }
 
-    // Competizione: chiamate parallele
+    // Competizione
     this.aiGroqResult    = ''; this.aiMistralResult    = '';
     this.aiGroqVariants  = []; this.aiMistralVariants  = [];
     this.activeTab = 'groq';
@@ -1506,7 +1480,6 @@ const App = {
       this._callGASProvider('mistral', type, originalText),
     ]);
 
-    // Groq
     if (groqRes.status === 'fulfilled') {
       this.aiGroqResult   = groqRes.value.trim();
       this.aiGroqVariants = this._parseVariants(this.aiGroqResult);
@@ -1516,7 +1489,6 @@ const App = {
       this._setTabState('groq', 'err');
     }
 
-    // Mistral
     if (mistralRes.status === 'fulfilled') {
       this.aiMistralResult   = mistralRes.value.trim();
       this.aiMistralVariants = this._parseVariants(this.aiMistralResult);
@@ -1526,17 +1498,11 @@ const App = {
       this._setTabState('mistral', 'err');
     }
 
-    // Mostra il tab Groq per default e aggiorna lastResult/Variants
+    // Mostra tab Groq per default (e logga Groq automaticamente la prima volta)
     this.switchTab('groq');
 
-    // Spinner off
     $('ai-result').classList.remove('loading');
     $('ai-spinner').style.display = 'none';
-
-    // Log in background (usa risultato Groq come riferimento)
-    if (this.aiGroqResult && !this.aiGroqResult.startsWith('⚠')) {
-      this._logToSheet(type, originalText, this.aiGroqResult).catch(() => {});
-    }
   },
 
   _openAISheet(type, competition) {
@@ -1551,9 +1517,7 @@ const App = {
     this.aiLastVariants = [];
     $('ai-overlay').classList.add('open');
     $('ai-sheet').classList.add('open');
-    // Tab bar
     $('ai-tabs').classList.toggle('open', !!competition);
-    // Footer buttons
     const showFoot = (type !== 'riformula');
     $('ai-btn-replace').style.display = showFoot ? '' : 'none';
     $('ai-btn-insert').style.display  = showFoot ? '' : 'none';
@@ -1583,12 +1547,22 @@ const App = {
     this._renderIntoEl($('ai-result-text'), this.currentType, result, tab);
     $('ai-result').classList.remove('loading');
     $('ai-spinner').style.display = 'none';
+
+    // Logga il provider se non è già stato loggato in questa sessione AI
+    if (this.currentType === 'riformula' || this.currentType === 'valuta') {
+      if (tab === 'groq' && !this._loggedGroq && this.aiGroqResult && !this.aiGroqResult.startsWith('⚠')) {
+        this._loggedGroq = true;
+        this._logToSheetForProvider(this.currentType, this.selText, this.aiGroqResult, 'groq');
+      } else if (tab === 'mistral' && !this._loggedMistral && this.aiMistralResult && !this.aiMistralResult.startsWith('⚠')) {
+        this._loggedMistral = true;
+        this._logToSheetForProvider(this.currentType, this.selText, this.aiMistralResult, 'mistral');
+      }
+    }
   },
 
   async _callGASProvider(provider, type, selectedText) {
     const sysp    = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
     const context = localStorage.getItem(this.K_CONTEXT)   || '';
-    // Contesto progetto preposto al prompt di sistema
     const fullSystem = context
       ? `=== CONTESTO DEL PROGETTO ===\n${context}\n\n=== ISTRUZIONI EDITOR ===\n${sysp}`
       : sysp;
@@ -1606,7 +1580,6 @@ const App = {
     const prov  = pipeIdx > -1 ? modelKey.slice(0, pipeIdx)  : provider;
     const model = pipeIdx > -1 ? modelKey.slice(pipeIdx + 1) : modelKey;
 
-    // Etichetta leggibile per il log Sheet (es. "Groq · llama-3.3-70b-versatile")
     const provLabel = prov.charAt(0).toUpperCase() + prov.slice(1);
     this[`_${provider}ModelLabel`] = `${provLabel} · ${model}`;
 
@@ -1618,7 +1591,6 @@ const App = {
     return res.data?.text || '(risposta vuota)';
   },
 
-  // mantiene compatibilità con log e sinonimi/contrari
   async _callGAS(type, selectedText) {
     return this._callGASProvider('groq', type, selectedText);
   },
@@ -1630,10 +1602,8 @@ const App = {
     switch(type) {
       case 'sinonimi':
         return `Fornisci 8-12 sinonimi precisi per la parola o l'espressione: "${t}"\nRispondi solo con la lista separata da virgole. Zero introduzioni, zero spiegazioni.`;
-
       case 'contrari':
         return `Fornisci 6-10 contrari precisi per la parola o l'espressione: "${t}"\nRispondi solo con la lista separata da virgole. Zero introduzioni, zero spiegazioni.`;
-
       case 'riformula':
         return `Riformula L'INTERO testo seguente in 7 versioni numerate.
 
@@ -1663,7 +1633,6 @@ FORMATO RISPOSTA — solo questo, nient'altro:
 
 TESTO DA RIFORMULARE (riformula tutto, dall'inizio alla fine):
 "${t}"`;
-
       case 'valuta':
         return `Analizza questo testo come un editor di mestiere. Diretto, senza gentilezze inutili.
 
@@ -1686,7 +1655,6 @@ VERSIONE DELL'EDITOR
 
 TESTO:
 "${t}"`;
-
       default:
         return t;
     }
@@ -1713,7 +1681,29 @@ TESTO:
     return variants;
   },
 
-  // Renderer centrale — scrive in qualsiasi elemento target
+  // Log generico per provider (usa tutte le varianti per riformula)
+  async _logToSheetForProvider(type, original, result, provider) {
+    if (!this.gas) return;
+    const modelLabel = provider === 'mistral' ? (this._mistralModelLabel || 'Mistral') : (this._groqModelLabel || 'Groq');
+    if (type === 'riformula') {
+      const variants = provider === 'mistral' ? this.aiMistralVariants : this.aiGroqVariants;
+      const allVariants = variants.length ? variants : this._parseVariants(result);
+      const padded = Array.from({length:7}, (_,i) => allVariants[i] || '');
+      const res = await this.gas.scriptorium_log_riformula(original, padded, modelLabel);
+      if (res?.ok) this.msg(`✓ ${provider} salvato su Sheet Riformulazioni`, 'ok');
+      setTimeout(() => this.msg('—',''), 3000);
+    } else if (type === 'valuta') {
+      const res = await this.gas.scriptorium_log_valuta(original, result, modelLabel);
+      if (res?.ok) this.msg(`✓ ${provider} salvato su Sheet Valutazioni`, 'ok');
+      setTimeout(() => this.msg('—',''), 3000);
+    }
+  },
+
+  // Mantenuto per retrocompatibilità (non usato direttamente nelle competizioni)
+  async _logToSheet(type, original, result) {
+    return this._logToSheetForProvider(type, original, result, 'groq');
+  },
+
   _renderIntoEl(el, type, text, provider) {
     if (!el) return;
     $('ai-result').classList.remove('loading');
@@ -1734,7 +1724,6 @@ TESTO:
       const LABELS = ['Diretta','Invertita','Nominale','Ritmo lento','Ritmo incalzante','Registro alto','Originale corretto'];
       const variants = (provider === 'mistral') ? this.aiMistralVariants : this.aiGroqVariants;
       const mask = this.getRiformMask();
-      // Filtra le varianti abilitate
       const visible = variants.map((v, i) => ({ v, i })).filter(({ i }) => !!(mask & (1 << i)));
 
       if (visible.length > 0) {
@@ -1754,7 +1743,6 @@ TESTO:
               <div style="font-family:'Crimson Pro',Georgia,serif;font-size:15.5px;line-height:1.88;color:var(--ed-fg);white-space:pre-wrap;word-break:break-word">${esc(v)}</div>
             </div>`;
         }).join('');
-        // Avviso se alcune sono nascoste
         const hidden = 7 - visible.length;
         if (hidden > 0) {
           el.innerHTML += `<p style="font-size:11px;color:var(--faint);text-align:center;margin-top:4px">${hidden} variante${hidden>1?'/':'/'} nascosta${hidden>1?'i':''} — modifica in ⚙ Impostazioni</p>`;
@@ -1799,7 +1787,6 @@ TESTO:
     el.textContent = text;
   },
 
-  // Compatibilità con codice esistente (sinonimi/contrari)
   _renderAIResult(type, text) {
     this._renderIntoEl($('ai-result-text'), type, text, 'groq');
   },
@@ -1822,21 +1809,6 @@ TESTO:
     this.closeAI();
     this.msg(`Versione editor (${provider}) inserita`, 'ok');
     setTimeout(() => this.msg('—',''), 2500);
-  },
-
-  /* ── LOG SU GOOGLE SHEET (fire & forget) ── */
-  async _logToSheet(type, original, result) {
-    if (!this.gas) return;
-    const modelLabel = this._groqModelLabel || 'Groq';
-    if (type === 'riformula') {
-      const variants = this.aiGroqVariants.length ? this.aiGroqVariants : this._parseVariants(result);
-      const padded = Array.from({length:7}, (_,i) => variants[i] || '');
-      const res = await this.gas.scriptorium_log_riformula(original, padded, modelLabel);
-      if (res?.ok) { this.msg('✓ salvato su Sheet Riformulazioni', 'ok'); setTimeout(()=>this.msg('—',''),3000); }
-    } else if (type === 'valuta') {
-      const res = await this.gas.scriptorium_log_valuta(original, result, modelLabel);
-      if (res?.ok) { this.msg('✓ salvato su Sheet Valutazioni', 'ok'); setTimeout(()=>this.msg('—',''),3000); }
-    }
   },
 
   _renderAIError(msg) {
@@ -1896,17 +1868,16 @@ TESTO:
     this._hideSelBar();
   },
 
-  /* ── IMPORT / EXPORT ────────────────────── */
+  /* ── IMPORT / EXPORT (identico a V12) ────── */
   importFile() { $('file-input').click(); },
   onFileSelect(ev) {
     const f = ev.target.files[0]; if (!f) return;
     const r = new FileReader();
     r.onload = e => {
-      // ── cfg.env: carica credenziali GAS e impostazioni AI ──
-      if (f.name.toLowerCase() === 'cfg.env') {
+      const lowerName = f.name.toLowerCase();
+	if (lowerName === 'cfg.env' || lowerName === 'cfg.env.txt' || lowerName.endsWith('.env.txt')) {
         const content = e.target.result;
         const parsed = {};
-        // Parser .env robusto: supporta valori con virgolette e spazi
         const lines = content.split(/\r?\n/);
         for (let line of lines) {
           line = line.trim();
@@ -1915,14 +1886,11 @@ TESTO:
           if (eq < 1) continue;
           let key = line.slice(0, eq).trim();
           let val = line.slice(eq + 1).trim();
-          // Rimuovi virgolette esterne (doppie o singole)
           if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
             val = val.slice(1, -1);
           }
-          // Rimuovi eventuali spazi iniziali/finali dopo le virgolette
           val = val.trim();
           parsed[key] = val;
-          // versione lowercase per fallback
           if (!parsed[key.toLowerCase()]) parsed[key.toLowerCase()] = val;
         }
         const url = parsed['GAS_URL']   || parsed['gas_url']   || '';
@@ -1940,7 +1908,6 @@ TESTO:
         ev.target.value = '';
         return;
       }
-      // ── file normale: carica nel editor ──
       if (this.text.trim()) this._push(`Prima di ${f.name}`, false);
       this.text = e.target.result;
       $('editor').value = this.text;
@@ -1957,8 +1924,6 @@ TESTO:
     const d = new Date();
     const s = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
     const filename = `testo_${s}.txt`;
-    // iOS Safari: <a download> apre il file nel browser invece di scaricarlo.
-    // Web Share API (iOS 12.2+) permette di salvare su File, Note, ecc.
     if (isIOS() && navigator.share) {
       const file = new File([this.text], filename, { type: 'text/plain' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1969,7 +1934,6 @@ TESTO:
       }
       this._showTextModal(filename); return;
     }
-    // Desktop / Android
     const blob = new Blob([this.text],{type:'text/plain;charset=utf-8'});
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -1997,7 +1961,7 @@ TESTO:
     catch(_) { this.msg('copia non disponibile','warn'); }
   },
 
-  /* ── GOOGLE DRIVE (via GAS Server) ─────── */
+  /* ── GOOGLE DRIVE (identico a V12) ─────── */
   async exportToDrive() {
     if (!this.text.trim()) { this.msg('nulla da esportare', 'warn'); return; }
     if (!_gasOk() || !this.gas) { this.msg('GAS non configurato — apri ⚙', 'err'); return; }
@@ -2075,7 +2039,6 @@ TESTO:
   closeSettings()  { $('settings-overlay').classList.remove('open'); $('settings-panel').classList.remove('open'); },
   closeAI()        { $('ai-overlay').classList.remove('open'); $('ai-sheet').classList.remove('open'); },
 
-  /* ── RENDER LIST ────────────────────────── */
   renderList() {
     const el = $('vlist');
     if (!this.versions.length) {
@@ -2096,7 +2059,6 @@ TESTO:
     `).join('');
   },
 
-  /* ── MODAL ──────────────────────────────── */
   showModal(title, body, btns) {
     this.modalCbs = btns.map(b=>b.cb);
     $('modal-title').textContent = title;
@@ -2109,7 +2071,6 @@ TESTO:
   modalCb(i)   { if(this.modalCbs[i]) this.modalCbs[i](); },
   closeModal() { $('modal-overlay').classList.remove('open'); this.modalCbs=[]; },
 
-  /* ── STATUS MSG ─────────────────────────── */
   msg(text, cls) {
     const el = $('st-msg'); el.textContent = text; el.className = cls || '';
   },
