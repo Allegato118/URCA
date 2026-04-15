@@ -469,7 +469,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-  <span id="logo">Script V10.0 (Ert)</span>
+  <span id="logo">Script V11.0 (Ert)</span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -633,11 +633,6 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
       </select>
     </div>
 
-<!-- ── MODELS PANEL ── -->
-<!-- ── MODELS PANEL ── -->
-<!-- ── MODELS PANEL ── -->
-<!-- ── MODELS PANEL ── -->
-
     <div class="sp-section">
       <label class="sp-label">Modello Mistral (competizione)</label>
       <select class="sp-select" id="sp-model-mistral">
@@ -646,6 +641,17 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
         <option value="mistral|mistral-small-latest">Mistral Small — veloce</option>
       </select>
       <p class="sp-note">Riformula e Valuta chiamano entrambi i modelli in parallelo e mostrano i risultati a confronto. Sinonimi e Contrari usano solo il modello Groq.</p>
+    </div>
+
+    <div class="sp-section">
+      <label class="sp-label">Contesto progetto (URCA / sinossi)</label>
+      <textarea class="sp-textarea" id="sp-context" rows="8"
+        placeholder="Scrivi qui la sinossi del progetto, il glossario dei termini chiave, la logica del sistema. Questo testo viene inviato a entrambi i modelli prima di ogni richiesta, come cornice di lettura permanente.
+
+Esempio:
+URCA è un framework valoriale costruito su quattro principi: Umiltà (consapevolezza del limite come condizione di apprendimento), Rispetto (riconoscimento dell'altro come portatore di valore), Coraggio (fedeltà ai propri valori nel momento della scelta), Azione (il gesto che lascia traccia nel mondo). Il sistema funziona come spirale: ogni azione aggiorna il modello e ricomincia il ciclo. Dell'Orfano è il cognome dell'autore e un concetto strutturale: la mancanza come motore generativo, non come deficit. La Scoperta (maiuscola) è l'esito della spirale. Il lessico è deliberato: non usare sinonimi generici per questi termini."
+        autocorrect="off" autocapitalize="off"></textarea>
+      <p class="sp-note">Preposto automaticamente al prompt di sistema. Entrambi i modelli lo ricevono ad ogni chiamata. Più è preciso, più i modelli riconoscono il tuo lessico come sistema e non come errore.</p>
     </div>
 
     <div class="sp-section">
@@ -793,14 +799,14 @@ class GasClient {
   scriptorium_load(fileId)            { return this.call('scriptorium.load', { fileId }); }
   // Sheet logging — fire & forget, non bloccano la UI
   // GAS deve gestire: scriptorium.log_riformula → foglio "Riformulazioni"
-  //   colonne: Timestamp | Originale | Diretta | Invertita | Nominale | Ritmo lento | Ritmo incalzante | Registro alto | Originale corretto
-  scriptorium_log_riformula(original, variants) {
-    return this.call('scriptorium.log_riformula', { original, variants });
+  //   colonne: Timestamp | Originale | Diretta | Invertita | Nominale | Ritmo lento | Ritmo incalzante | Registro alto | Originale corretto | Modello
+  scriptorium_log_riformula(original, variants, model) {
+    return this.call('scriptorium.log_riformula', { original, variants, model: model || '' });
   }
   // GAS deve gestire: scriptorium.log_valuta → foglio "Valutazioni"
-  //   colonne: Timestamp | Originale | Critica
-  scriptorium_log_valuta(original, critique) {
-    return this.call('scriptorium.log_valuta', { original, critique });
+  //   colonne: Timestamp | Originale | Critica | Modello
+  scriptorium_log_valuta(original, critique, model) {
+    return this.call('scriptorium.log_valuta', { original, critique, model: model || '' });
   }
 }
 
@@ -863,8 +869,9 @@ const App = {
   K_GAS_URL:      'scr3:gas_url',
   K_GAS_TOK:      'scr3:gas_token',
   K_MARK:         'scr3:mark',
-  K_RIFORM_MASK:  'scr3:riform_mask',  // bitmask 0b1111111 = tutte e 7
-  K_AUTOSAVE_DR:  'scr3:autosave_drive', // 'on'|'off'
+  K_RIFORM_MASK:  'scr3:riform_mask',
+  K_AUTOSAVE_DR:  'scr3:autosave_drive',
+  K_CONTEXT:      'scr3:context',      // contesto progetto (URCA synopsis ecc.)
   MAX_V:     60,
   MAX_AUTO:  4,
   MAX_UNDO:  25,
@@ -986,6 +993,8 @@ const App = {
     $('sp-temp-val').textContent = (parseInt(temp)/100).toFixed(1);
     $('sp-gas-url').value   = localStorage.getItem(this.K_GAS_URL) || '';
     $('sp-gas-token').value = localStorage.getItem(this.K_GAS_TOK) || '';
+    const ctxEl = document.getElementById('sp-context');
+    if (ctxEl) ctxEl.value = localStorage.getItem(this.K_CONTEXT) || '';
 
     // Autosave Drive
     const asDrEl = document.getElementById('sp-autosave-drive');
@@ -1003,6 +1012,8 @@ const App = {
     localStorage.setItem(this.K_MODEL,          $('sp-model').value);
     localStorage.setItem(this.K_MODEL_MISTRAL,  $('sp-model-mistral').value);
     localStorage.setItem(this.K_TEMP,           $('sp-temp').value);
+    const ctxEl = document.getElementById('sp-context');
+    if (ctxEl) localStorage.setItem(this.K_CONTEXT, ctxEl.value.trim());
 
     // Autosave Drive
     const asDrEl = document.getElementById('sp-autosave-drive');
@@ -1575,24 +1586,33 @@ const App = {
   },
 
   async _callGASProvider(provider, type, selectedText) {
-    const sysp  = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
-    const temp  = parseFloat(localStorage.getItem(this.K_TEMP) || '60') / 100;
+    const sysp    = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
+    const context = localStorage.getItem(this.K_CONTEXT)   || '';
+    // Contesto progetto preposto al prompt di sistema
+    const fullSystem = context
+      ? `=== CONTESTO DEL PROGETTO ===\n${context}\n\n=== ISTRUZIONI EDITOR ===\n${sysp}`
+      : sysp;
+
+    const temp   = parseFloat(localStorage.getItem(this.K_TEMP) || '60') / 100;
     const prompt = this._buildPrompt(type, selectedText);
     const maxTok = type === 'riformula' ? 3000
                  : type === 'valuta'    ? 1800
                  : 900;
 
-    // Scegli il modello dal corretto dropdown — fix: rest era undeclared
     const modelKey = provider === 'mistral'
       ? (localStorage.getItem(this.K_MODEL_MISTRAL) || 'mistral|mistral-large-latest')
       : (localStorage.getItem(this.K_MODEL)         || 'groq|llama-3.3-70b-versatile');
     const pipeIdx = modelKey.indexOf('|');
-    const prov  = pipeIdx > -1 ? modelKey.slice(0, pipeIdx)    : provider;
-    const model = pipeIdx > -1 ? modelKey.slice(pipeIdx + 1)   : modelKey;
+    const prov  = pipeIdx > -1 ? modelKey.slice(0, pipeIdx)  : provider;
+    const model = pipeIdx > -1 ? modelKey.slice(pipeIdx + 1) : modelKey;
+
+    // Etichetta leggibile per il log Sheet (es. "Groq · llama-3.3-70b-versatile")
+    const provLabel = prov.charAt(0).toUpperCase() + prov.slice(1);
+    this[`_${provider}ModelLabel`] = `${provLabel} · ${model}`;
 
     const res = await this.gas.ai(
       [{ role: 'user', content: prompt }],
-      { system: sysp, temperature: temp, model, provider: prov, max_tokens: maxTok }
+      { system: fullSystem, temperature: temp, model, provider: prov, max_tokens: maxTok }
     );
     if (!res.ok) throw new Error(res.error || `Errore server GAS (${provider})`);
     return res.data?.text || '(risposta vuota)';
@@ -1807,13 +1827,14 @@ TESTO:
   /* ── LOG SU GOOGLE SHEET (fire & forget) ── */
   async _logToSheet(type, original, result) {
     if (!this.gas) return;
+    const modelLabel = this._groqModelLabel || 'Groq';
     if (type === 'riformula') {
       const variants = this.aiGroqVariants.length ? this.aiGroqVariants : this._parseVariants(result);
       const padded = Array.from({length:7}, (_,i) => variants[i] || '');
-      const res = await this.gas.scriptorium_log_riformula(original, padded);
+      const res = await this.gas.scriptorium_log_riformula(original, padded, modelLabel);
       if (res?.ok) { this.msg('✓ salvato su Sheet Riformulazioni', 'ok'); setTimeout(()=>this.msg('—',''),3000); }
     } else if (type === 'valuta') {
-      const res = await this.gas.scriptorium_log_valuta(original, result);
+      const res = await this.gas.scriptorium_log_valuta(original, result, modelLabel);
       if (res?.ok) { this.msg('✓ salvato su Sheet Valutazioni', 'ok'); setTimeout(()=>this.msg('—',''),3000); }
     }
   },
