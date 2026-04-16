@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM v14 — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM V14 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -352,8 +352,11 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 #ai-actions button { min-height: 38px; font-size: 13.5px; }
 
 #ai-result {
-  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding: 14px 16px; min-height: 80px;
+  /* FIX-1: min-height:0 obbligatorio in flex-column per attivare overflow-y su iOS.
+     Senza questo il browser non vincola l'altezza del flex-child e il testo eccede
+     la viewport invece di scrollare all'interno del pannello (testo "incompleto"). */
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 14px 16px;
   font-size: 15.5px; line-height: 1.8; color: var(--text);
   font-family: 'Crimson Pro', Georgia, serif;
 }
@@ -469,7 +472,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V14.0 (Ert)</span></span>
+<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V15.0 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -1770,9 +1773,21 @@ TESTO:
       return;
     }
     if (type === 'valuta') {
-      const votoMatch    = text.match(/VOTO\s*:\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i);
-      const giudizioM    = text.match(/GIUDIZIO\s*:\s*(.+)/i);
-      const editorM      = text.match(/VERSIONE DELL'EDITOR\s*\n([\s\S]+)$/i);
+      // FIX-2: strip markdown (**/__ etc.) prima di parsare le sezioni strutturate.
+      // Mistral restituisce spesso "**VOTO:** 8/10" o "VOTO: **8**/10" che rompono
+      // i gruppi di cattura numerici. Lavoriamo su una copia clean solo per i match.
+      const textClean = text.replace(/\*{1,3}|_{1,3}/g, '');
+
+      const votoMatch = textClean.match(/VOTO\s*:\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i);
+      const giudizioM = textClean.match(/GIUDIZIO\s*:\s*(.+)/i);
+
+      // FIX-3: apostrofo sia dritto (U+0027) sia curvo tipografico (U+2019).
+      // I modelli AI — Mistral in particolare — restituiscono "DELL'EDITOR"
+      // con apostrofo curvo, rompendo silenziosamente il match e lasciando
+      // l'intera versione dell'editor nel body come testo piano non formattato.
+      const EDITOR_RX = /VERSIONE DELL['''\u2019]EDITOR\s*\n([\s\S]+)$/i;
+      const editorM   = text.match(EDITOR_RX);
+
       let html = '';
       if (votoMatch || giudizioM) {
         const score = votoMatch ? votoMatch[1].replace(',','.') : '—';
@@ -1785,9 +1800,11 @@ TESTO:
         </div>`;
       }
       const body = text
+        .replace(/\*{1,3}VOTO\*{0,3}\s*:\s*\*{0,3}.+\n?/i,'')
         .replace(/VOTO\s*:\s*.+\n?/i,'')
+        .replace(/\*{1,3}GIUDIZIO\*{0,3}\s*:\s*\*{0,3}.+\n?/i,'')
         .replace(/GIUDIZIO\s*:\s*.+\n?/i,'')
-        .replace(/VERSIONE DELL'EDITOR[\s\S]*/i,'')
+        .replace(EDITOR_RX,'')
         .trim();
       if (body) html += `<div style="white-space:pre-wrap;word-break:break-word;font-size:14.5px;line-height:1.78;color:var(--ed-fg);margin-bottom:14px">${esc(body)}</div>`;
       if (editorM) {
