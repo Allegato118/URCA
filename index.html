@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM V16.3 — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM V14 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -496,7 +496,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V16.3 (Ert)</span></span>
+<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V17.0 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -1251,12 +1251,16 @@ const App = {
             this.showModal(
               '⚠ Sei proprio sicuro?',
               `<p>Il testo verrà <strong style="color:var(--danger)">eliminato definitivamente</strong> dall'editor.</p>
-               <p style="margin-top:10px;font-size:13px">Prima della cancellazione, il contenuto verrà salvato su Drive con suffisso <span style="font-family:monospace;color:var(--accent)">_X</span> come copia di sicurezza.</p>`,
+               <p style="margin-top:10px;font-size:13px">Scegli come procedere:</p>`,
               [
                 { label: 'NO — Torna indietro', cb: () => this.closeModal() },
-                { label: 'SÌ — Cancella', danger: true, cb: () => {
+                { label: '☁ Salva _X e cancella', primary: true, cb: () => {
                   this.closeModal();
-                  this._clearEditorConfirmed();
+                  this._clearEditorConfirmed(true);
+                }},
+                { label: '🗑 Cancella senza conservare nulla', danger: true, cb: () => {
+                  this.closeModal();
+                  this._clearEditorConfirmed(false);
                 }},
               ]
             );
@@ -1266,27 +1270,30 @@ const App = {
     );
   },
 
-  async _clearEditorConfirmed() {
+  async _clearEditorConfirmed(saveDrive = true) {
     const textToSave = this.text;
-    // Salva versione locale con etichetta _X
-    this._push('_X — ' + this._autoLabel(), false);
 
-    // Salva su Drive con suffisso _X se GAS configurato
-    if (_gasOk() && this.gas) {
-      this.msg('Salvataggio su Drive…', 'ai');
-      try {
-        const d   = new Date();
-        const ts  = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
-        const res = await this.gas.scriptorium_save(textToSave, `${ts}_X`);
-        if (res?.ok) {
-          this.msg(`☁ backup _X salvato su Drive`, 'ok');
-        } else {
-          this.msg(`⚠ Drive: ${res.error || 'errore'}`, 'err');
+    if (saveDrive) {
+      // Salva versione locale con etichetta _X
+      this._push('_X — ' + this._autoLabel(), false);
+
+      // Salva su Drive con suffisso _X se GAS configurato
+      if (_gasOk() && this.gas) {
+        this.msg('Salvataggio su Drive…', 'ai');
+        try {
+          const d   = new Date();
+          const ts  = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+          const res = await this.gas.scriptorium_save(textToSave, `${ts}_X`);
+          if (res?.ok) {
+            this.msg(`☁ backup _X salvato su Drive`, 'ok');
+          } else {
+            this.msg(`⚠ Drive: ${res.error || 'errore'}`, 'err');
+          }
+        } catch(e) {
+          this.msg('⚠ Errore Drive — testo salvato solo in locale', 'err');
         }
-      } catch(e) {
-        this.msg('⚠ Errore Drive — testo salvato solo in locale', 'err');
+        await new Promise(r => setTimeout(r, 1200));
       }
-      await new Promise(r => setTimeout(r, 1200));
     }
 
     // Cancella
