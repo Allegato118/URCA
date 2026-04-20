@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM V18B — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM V14 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -480,6 +480,22 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   #statbar .st-read { display: none; }
   #editor { padding: 20px 14px; }
 }
+@media (max-width: 660px) {
+  #sel-bar {
+    height: auto;
+    min-height: var(--sel-h);
+    flex-wrap: wrap;
+    overflow-x: visible;
+    white-space: normal;
+    padding: 5px 10px;
+    gap: 4px;
+    align-content: center;
+  }
+  #sel-preview { max-width: 90px; }
+  #sel-count { display: none; }
+  .sel-action { flex-shrink: 0; min-height: 36px; font-size: 12px; padding: 3px 9px; }
+  .sel-action.chat-btn { order: -1; min-height: 38px; font-size: 13px; padding: 4px 12px; }
+}
 @media (min-width: 661px) {
   #topbar .tb-mob { display: none; }
   #bottombar { display: none; }
@@ -602,7 +618,7 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V18.2 (Ert)</span></span>
+<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V18.0 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
