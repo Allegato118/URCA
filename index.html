@@ -485,6 +485,112 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   #bottombar { display: none; }
 }
 
+/* ── CHAT MODE ───────────────────────────── */
+#chat-area {
+  display: none; flex: 1; min-height: 0;
+  flex-direction: column;
+}
+#chat-area.open { display: flex; }
+
+#chat-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0; background: var(--surf2);
+}
+#chat-model-sel {
+  flex: 1; background: var(--ed-bg); border: 1px solid var(--border2);
+  color: var(--text); padding: 5px 8px; border-radius: var(--r);
+  font-size: 11.5px; font-family: 'JetBrains Mono', monospace;
+  outline: none; -webkit-appearance: none; min-height: 32px; cursor: pointer;
+}
+#chat-token-badge {
+  font-size: 10px; font-family: 'JetBrains Mono', monospace;
+  padding: 3px 9px; border-radius: 10px;
+  border: 1px solid var(--border2); color: var(--ok);
+  white-space: nowrap; flex-shrink: 0;
+  transition: color var(--t), border-color var(--t), background var(--t);
+}
+#chat-token-badge.warn   { color: var(--accent); border-color: var(--accent2); background: rgba(200,168,74,.07); }
+#chat-token-badge.danger { color: var(--danger);  border-color: var(--danger);  background: rgba(184,90,90,.08); }
+
+#chat-history {
+  flex: 1; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.chat-bubble {
+  max-width: 94%; padding: 9px 12px; border-radius: 10px;
+  font-family: 'Crimson Pro', Georgia, serif; font-size: 15px; line-height: 1.75;
+  white-space: pre-wrap; word-break: break-word;
+}
+.chat-bubble.user {
+  align-self: flex-end;
+  background: rgba(106,140,184,.14); border: 1px solid var(--ai2);
+  color: var(--text);
+}
+.chat-bubble.assistant {
+  align-self: flex-start;
+  background: rgba(200,168,74,.05); border: 1px solid rgba(200,168,74,.18);
+  color: var(--ed-fg);
+}
+.chat-bubble.err-bubble {
+  border-color: var(--danger); background: rgba(184,90,90,.08); color: var(--danger);
+}
+.chat-bubble-meta {
+  font-size: 9.5px; font-family: 'JetBrains Mono', monospace;
+  color: var(--faint); margin-top: 5px; line-height: 1.4;
+}
+.chat-bubble.assistant .chat-bubble-meta { text-align: left; }
+.chat-bubble.user      .chat-bubble-meta { text-align: right; }
+
+/* typing indicator */
+.chat-typing {
+  display: flex; gap: 5px; align-items: center;
+  padding: 10px 14px; align-self: flex-start;
+}
+.chat-typing span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ai2); animation: chatbounce .9s infinite;
+}
+.chat-typing span:nth-child(2) { animation-delay: .18s; }
+.chat-typing span:nth-child(3) { animation-delay: .36s; }
+@keyframes chatbounce { 0%,60%,100%{ transform:translateY(0); } 30%{ transform:translateY(-6px); } }
+
+#chat-input-row {
+  display: flex; gap: 7px; padding: 8px 10px;
+  border-top: 1px solid var(--border); flex-shrink: 0;
+  background: var(--surf); align-items: flex-end;
+}
+#chat-input {
+  flex: 1; background: var(--ed-bg); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 11px; border-radius: var(--r);
+  font-size: 15.5px; font-family: 'Crimson Pro', Georgia, serif;
+  outline: none; -webkit-appearance: none; resize: none;
+  min-height: 42px; max-height: 130px; line-height: 1.55;
+  overflow-y: auto; transition: border-color var(--t);
+}
+#chat-input:focus { border-color: var(--ai2); }
+#chat-input::placeholder { color: var(--faint); font-style: italic; }
+#chat-send-btn {
+  width: 42px; height: 42px; min-width: 42px; min-height: 42px;
+  border-radius: 50%; flex-shrink: 0;
+  background: var(--ai2); border: 1px solid var(--ai);
+  color: var(--ai); font-size: 20px; padding: 0;
+}
+#chat-send-btn:hover, #chat-send-btn:active { background: var(--ai); color: var(--bg); }
+#chat-send-btn:disabled { opacity: .35; pointer-events: none; }
+#chat-close-btn {
+  width: 42px; height: 42px; min-width: 42px; min-height: 42px;
+  border-radius: 50%; flex-shrink: 0;
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--dim); font-size: 15px; padding: 0;
+}
+#chat-close-btn:hover { border-color: var(--danger); color: var(--danger); background: rgba(184,90,90,.08); }
+
+/* Dialoga button accent */
+button.chat-btn { color: var(--accent); border-color: var(--accent2); background: rgba(200,168,74,.07); }
+button.chat-btn:hover { background: rgba(200,168,74,.18); }
+
 /* scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -496,7 +602,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V17.0 (Ert)</span></span>
+<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V18.0 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -595,6 +701,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   <button class="sel-action ai-btn" onclick="App.aiAction('contrari')">Contrari</button>
   <button class="sel-action ai-btn" onclick="App.aiAction('riformula')">Riformula</button>
   <button class="sel-action ai-btn" onclick="App.aiAction('valuta')">Valuta</button>
+  <button class="sel-action chat-btn" onclick="App.openChat()">💬 Dialoga</button>
 </div>
 
 <!-- ── STATUS BAR ── -->
@@ -785,6 +892,7 @@ URCA è un framework valoriale costruito su quattro principi: Umiltà (consapevo
     <button class="ai-btn" onclick="App.aiAction('contrari')">Contrari</button>
     <button class="ai-btn" onclick="App.aiAction('riformula')">Riformula</button>
     <button class="ai-btn" onclick="App.aiAction('valuta')">Valuta periodo</button>
+    <button class="chat-btn" onclick="App.openChat()">💬 Dialoga</button>
   </div>
   <!-- tab bar: visible only in competition mode -->
   <div id="ai-tabs">
@@ -794,6 +902,32 @@ URCA è un framework valoriale costruito su quattro principi: Umiltà (consapevo
   <div id="ai-result">
     <div id="ai-spinner"></div>
     <div id="ai-result-text"></div>
+  </div>
+  <!-- ── CHAT AREA (visibile solo in modalità Dialoga) ── -->
+  <div id="chat-area">
+    <div id="chat-header">
+      <select id="chat-model-sel" onchange="App._onChatModelChange(this.value)">
+        <option value="groq|llama-3.3-70b-versatile">⚡ LLaMA 3.3 70B (Groq)</option>
+        <option value="groq|llama-3.1-8b-instant">⚡ LLaMA 3.1 8B (Groq)</option>
+        <option value="groq|mixtral-8x7b-32768">⚡ Mixtral 8x7B (Groq)</option>
+        <option value="mistral|mistral-large-latest">✦ Mistral Large</option>
+        <option value="mistral|mistral-medium-latest">✦ Mistral Medium</option>
+        <option value="mistral|mistral-small-latest">✦ Mistral Small</option>
+      </select>
+      <div id="chat-token-badge">0 tok</div>
+    </div>
+    <div id="chat-history"></div>
+    <div id="chat-input-row">
+      <textarea id="chat-input"
+        placeholder="Scrivi la tua domanda… (Invio invia, Shift+Invio va a capo)"
+        autocorrect="on" autocapitalize="sentences" spellcheck="true"
+        onkeydown="App.onChatKey(event)"
+        oninput="App._resizeChatInput(this)"
+        rows="1"
+      ></textarea>
+      <button id="chat-send-btn" onclick="App.chatSend()" title="Invia">↑</button>
+      <button id="chat-close-btn" onclick="App.closeChat()" title="Chiudi chat e salva">✕</button>
+    </div>
   </div>
   <div id="ai-foot">
     <button onclick="App.aiReplace()" id="ai-btn-replace">↩ Sostituisci</button>
@@ -843,6 +977,9 @@ class GasClient {
   }
   scriptorium_log_valuta(original, critique, model) {
     return this.call('scriptorium.log_valuta', { original, critique, model: model || '' });
+  }
+  scriptorium_chat_save(session) {
+    return this.call('scriptorium.chat_save', { session });
   }
 }
 
@@ -897,6 +1034,13 @@ const App = {
   // flag per logging singolo per sessione AI
   _loggedGroq:    false,
   _loggedMistral: false,
+  // ── CHAT STATE ──────────────────────────
+  chatMode:       false,
+  chatSession:    null,   // { id, started, model, provider, modelLabel, contextText, exchanges[], tokensTotal }
+  chatHistory:    [],     // [{role, content}] per l'API
+  chatTypingEl:   null,
+  TOK_WARN:       60000,
+  TOK_DANGER:     90000,
 
   /* config */
   K_TEXT:         'scr3:text',
@@ -912,6 +1056,7 @@ const App = {
   K_AUTOSAVE_DR:  'scr3:autosave_drive',
   K_CONTEXT:      'scr3:context',
   K_SHEET_URL:    'scr3:sheet_url',
+  K_CHAT_MODEL:   'scr3:chat_model',
   MAX_V:     60,
   MAX_AUTO:  4,
   MAX_UNDO:  25,
@@ -1034,6 +1179,13 @@ const App = {
 
     const asDrEl = document.getElementById('sp-autosave-drive');
     if (asDrEl) asDrEl.checked = (autodr === 'on');
+
+    // Ripristina modello chat preferito
+    const chatModelEl = document.getElementById('chat-model-sel');
+    if (chatModelEl) {
+      const saved = localStorage.getItem(this.K_CHAT_MODEL) || 'groq|llama-3.3-70b-versatile';
+      chatModelEl.value = saved;
+    }
 
     document.querySelectorAll('.rif-chk').forEach(cb => {
       const idx = parseInt(cb.dataset.idx);
@@ -2180,7 +2332,11 @@ TESTO:
   closeDrawer()    { $('drawer-overlay').classList.remove('open'); $('drawer').classList.remove('open'); },
   openSettings()   { $('settings-overlay').classList.add('open'); $('settings-panel').classList.add('open'); },
   closeSettings()  { $('settings-overlay').classList.remove('open'); $('settings-panel').classList.remove('open'); },
-  closeAI()        { $('ai-overlay').classList.remove('open'); $('ai-sheet').classList.remove('open'); },
+  closeAI() {
+    if (this.chatMode) { this.closeChat(); return; }
+    $('ai-overlay').classList.remove('open');
+    $('ai-sheet').classList.remove('open');
+  },
 
   openSheet() {
     const el  = document.getElementById('sp-sheet-url');
@@ -2220,6 +2376,263 @@ TESTO:
   },
   modalCb(i)   { if(this.modalCbs[i]) this.modalCbs[i](); },
   closeModal() { $('modal-overlay').classList.remove('open'); this.modalCbs=[]; },
+
+  /* ── CHAT LIBERA (modalità Dialoga) ─────────────────────────────── */
+
+  openChat() {
+    if (!this.selText) { this.msg('Seleziona prima del testo su cui dialogare', 'warn'); return; }
+    if (!_gasOk() || !this.gas) {
+      this.showModal('Server GAS non configurato', `
+        <p>Per usare la chat AI devi configurare il server GAS.</p>
+        <p style="margin-top:8px;font-size:13px">Imposta <strong>GAS_URL</strong> e <strong>GAS_TOKEN</strong> nelle Impostazioni ⚙.</p>
+      `, [{ label: 'Chiudi', cb: () => this.closeModal() }]);
+      return;
+    }
+
+    // Inizializza sessione
+    const d = new Date();
+    const sessionId = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`
+                    + `_${pad(d.getHours())}${pad(d.getMinutes())}_${uid()}`;
+    this.chatSession = {
+      id:          sessionId,
+      started:     d.toISOString(),
+      model:       '',
+      provider:    '',
+      modelLabel:  '',
+      contextText: this.selText,
+      exchanges:   [],
+      tokensTotal: 0,
+    };
+    this.chatHistory  = [];
+    this.chatTypingEl = null;
+    this.chatMode     = true;
+
+    // Legge il modello scelto nel selettore
+    const modelKey = $('chat-model-sel').value
+                  || localStorage.getItem(this.K_CHAT_MODEL)
+                  || 'groq|llama-3.3-70b-versatile';
+    this._applyChatModelKey(modelKey);
+
+    // UI: sostituisce il pannello normale con la chat
+    $('ai-context-label').textContent = '💬 Chat libera';
+    $('ai-context-text').textContent  = this.selText;
+    $('ai-result').style.display      = 'none';
+    $('ai-tabs').classList.remove('open');
+    $('ai-foot').style.display        = 'none';
+    $('chat-area').classList.add('open');
+    $('chat-history').innerHTML       = '';
+    this._updateTokenBadge();
+
+    // Apre il foglio se non è già aperto
+    $('ai-overlay').classList.add('open');
+    $('ai-sheet').classList.add('open');
+
+    setTimeout(() => {
+      const ci = $('chat-input');
+      ci.value = '';
+      ci.style.height = '';
+      ci.focus();
+    }, 340);
+  },
+
+  closeChat() {
+    // Salvataggio finale su Drive (fire-and-forget, con flag final)
+    if (this.chatSession && this.chatSession.exchanges.length > 0) {
+      this._chatSaveToGAS(true);
+    }
+    // Reset stato
+    this.chatMode     = false;
+    this.chatSession  = null;
+    this.chatHistory  = [];
+    this.chatTypingEl = null;
+    // Ripristina UI normale
+    $('ai-result').style.display = '';
+    $('chat-area').classList.remove('open');
+    $('ai-foot').style.display   = '';
+    $('chat-history').innerHTML  = '';
+    // Chiude il foglio
+    $('ai-overlay').classList.remove('open');
+    $('ai-sheet').classList.remove('open');
+  },
+
+  async chatSend() {
+    const input = $('chat-input');
+    const text  = input.value.trim();
+    if (!text || !this.chatSession) return;
+
+    $('chat-send-btn').disabled = true;
+    input.value = ''; input.style.height = '';
+
+    // Bolla utente
+    this._appendChatBubble('user', text);
+    this.chatHistory.push({ role: 'user', content: text });
+
+    // Indicatore digitazione
+    this.chatTypingEl = this._appendTypingIndicator();
+
+    // Costruisce system prompt (identico agli altri provider + testo contestuale)
+    const sysp    = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
+    const context = localStorage.getItem(this.K_CONTEXT)   || '';
+    const fullSystem = (context
+      ? `=== CONTESTO DEL PROGETTO ===\n${context}\n\n=== ISTRUZIONI EDITOR ===\n${sysp}`
+      : sysp)
+      + `\n\n=== TESTO IN ANALISI (il testo su cui stai dialogando) ===\n"${this.chatSession.contextText}"`;
+
+    const { provider, model } = this.chatSession;
+    const temp = parseFloat(localStorage.getItem(this.K_TEMP) || '60') / 100;
+
+    let responseText = '';
+    let usageData    = {};
+    try {
+      const res = await this.gas.ai(
+        this.chatHistory,
+        { system: fullSystem, temperature: temp, model, provider, max_tokens: 2000 }
+      );
+      if (!res.ok) throw new Error(res.error || 'Errore GAS');
+      responseText = res.data?.text  || '(risposta vuota)';
+      usageData    = res.data?.usage || {};
+    } catch(e) {
+      responseText = '⚠ ' + (e.message || 'Errore sconosciuto');
+    }
+
+    // Rimuove indicatore
+    if (this.chatTypingEl) { this.chatTypingEl.remove(); this.chatTypingEl = null; }
+
+    // Aggiorna history
+    this.chatHistory.push({ role: 'assistant', content: responseText });
+
+    // Token cumulativi
+    const tokCall = usageData.total_tokens || 0;
+    this.chatSession.tokensTotal += tokCall;
+
+    // Aggiorna sessione
+    this.chatSession.exchanges.push({
+      ts:                new Date().toISOString(),
+      user:              text,
+      assistant:         responseText,
+      tokens_prompt:     usageData.prompt_tokens     || 0,
+      tokens_completion: usageData.completion_tokens || 0,
+      tokens_total:      tokCall,
+      tokens_cumulative: this.chatSession.tokensTotal,
+    });
+
+    // Bolla assistente
+    const isErr = responseText.startsWith('⚠');
+    this._appendChatBubble(
+      'assistant', responseText,
+      isErr ? '' : this.chatSession.modelLabel,
+      isErr ? 0  : tokCall
+    );
+
+    // Aggiorna badge token (con avvisi soglia)
+    this._updateTokenBadge();
+
+    // Salvataggio background
+    this._chatSaveToGAS(false);
+
+    $('chat-send-btn').disabled = false;
+    $('chat-input').focus();
+  },
+
+  onChatKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      this.chatSend();
+    }
+  },
+
+  _resizeChatInput(el) {
+    el.style.height = '';
+    el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+  },
+
+  _onChatModelChange(modelKey) {
+    localStorage.setItem(this.K_CHAT_MODEL, modelKey);
+    if (this.chatSession) this._applyChatModelKey(modelKey);
+  },
+
+  _applyChatModelKey(modelKey) {
+    localStorage.setItem(this.K_CHAT_MODEL, modelKey);
+    const pipeIdx = modelKey.indexOf('|');
+    const provider = pipeIdx > -1 ? modelKey.slice(0, pipeIdx) : 'groq';
+    const model    = pipeIdx > -1 ? modelKey.slice(pipeIdx+1)  : modelKey;
+    const provLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
+    if (this.chatSession) {
+      this.chatSession.provider   = provider;
+      this.chatSession.model      = model;
+      this.chatSession.modelLabel = `${provLabel} · ${model}`;
+    }
+    const sel = $('chat-model-sel');
+    if (sel) sel.value = modelKey;
+  },
+
+  _appendChatBubble(role, content, modelLabel, tokens) {
+    const hist = $('chat-history');
+    const div  = document.createElement('div');
+    div.className = 'chat-bubble ' + role
+                  + (content.startsWith('⚠') ? ' err-bubble' : '');
+
+    const contentDiv = document.createElement('div');
+    contentDiv.textContent = content;
+    div.appendChild(contentDiv);
+
+    if (modelLabel || tokens > 0) {
+      const meta = document.createElement('div');
+      meta.className = 'chat-bubble-meta';
+      const parts = [];
+      if (modelLabel) parts.push(modelLabel);
+      if (tokens > 0) parts.push(tokens.toLocaleString('it') + ' tok');
+      meta.textContent = parts.join(' · ');
+      div.appendChild(meta);
+    }
+
+    hist.appendChild(div);
+    hist.scrollTop = hist.scrollHeight;
+    return div;
+  },
+
+  _appendTypingIndicator() {
+    const hist = $('chat-history');
+    const div  = document.createElement('div');
+    div.className = 'chat-typing';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    hist.appendChild(div);
+    hist.scrollTop = hist.scrollHeight;
+    return div;
+  },
+
+  _updateTokenBadge() {
+    const badge = $('chat-token-badge');
+    if (!badge) return;
+    const n = this.chatSession?.tokensTotal || 0;
+    badge.textContent = n.toLocaleString('it') + ' tok';
+    badge.className   = '';
+    if (n >= this.TOK_DANGER) {
+      badge.classList.add('danger');
+      this.msg(`⚠ ${n.toLocaleString('it')} token — zona critica! Valuta di chiudere la chat.`, 'err');
+    } else if (n >= this.TOK_WARN) {
+      badge.classList.add('warn');
+      this.msg(`${n.toLocaleString('it')} token — attenzione al limite`, 'warn');
+    }
+  },
+
+  _chatSaveToGAS(isFinal = false) {
+    if (!this.gas || !this.chatSession || !this.chatSession.exchanges.length) return;
+    const payload = {
+      ...this.chatSession,
+      savedAt: new Date().toISOString(),
+      isFinal,
+    };
+    // Fire-and-forget: non blocca la UX
+    this.gas.scriptorium_chat_save(payload)
+      .then(res => {
+        if (isFinal && res?.ok) {
+          this.msg('💬 chat salvata su Drive ✓', 'ok');
+          setTimeout(() => this.msg('—', ''), 3500);
+        }
+      })
+      .catch(() => { /* silenzioso in background */ });
+  },
 
   msg(text, cls) {
     const el = $('st-msg'); el.textContent = text; el.className = cls || '';
