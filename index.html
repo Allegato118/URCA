@@ -799,6 +799,14 @@ URCA è un framework valoriale costruito su quattro principi: Umiltà (consapevo
     </div>
 
     <div class="sp-section">
+      <label class="sp-label">Prompt pre‑chat (solo per la chat)</label>
+      <textarea id="sp-prechat-prompt" class="sp-textarea" rows="4"
+        placeholder="Scrivi qui il messaggio che l'assistente mostrerà ALL'INIZIO della chat, prima ancora che tu scriva qualcosa.&#10;Esempio: 'Ciao, sono il tuo editor personale. Dimmi su quale passo hai dubbi.'"
+        autocorrect="off" autocapitalize="off"></textarea>
+      <p class="sp-note">Questo testo apparirà come primo messaggio dell'AI. La chat ignorerà il contesto progetto e il prompt di sistema.</p>
+    </div>
+
+    <div class="sp-section">
       <label class="sp-label">Temperatura</label>
       <div style="display:flex;align-items:center;gap:10px">
         <input type="range" id="sp-temp" min="0" max="100" value="60" style="flex:1;accent-color:var(--ai)">
@@ -1168,6 +1176,11 @@ const App = {
     $('sp-sysprompt').value    = sysp;
     $('sp-model').value        = model;
     $('sp-model-mistral').value= modelM;
+
+    const prechat = localStorage.getItem('scr3:prechat_prompt') || '';
+    const prechatEl = document.getElementById('sp-prechat-prompt');
+    if (prechatEl) prechatEl.value = prechat;
+
     $('sp-temp').value         = temp;
     $('sp-temp-val').textContent = (parseInt(temp)/100).toFixed(1);
     $('sp-gas-url').value   = localStorage.getItem(this.K_GAS_URL) || '';
@@ -1197,6 +1210,10 @@ const App = {
     localStorage.setItem(this.K_SYSPROMPT,     $('sp-sysprompt').value.trim());
     localStorage.setItem(this.K_MODEL,          $('sp-model').value);
     localStorage.setItem(this.K_MODEL_MISTRAL,  $('sp-model-mistral').value);
+
+    const prechatEl = document.getElementById('sp-prechat-prompt');
+    if (prechatEl) localStorage.setItem('scr3:prechat_prompt', prechatEl.value.trim());
+
     localStorage.setItem(this.K_TEMP,           $('sp-temp').value);
     const ctxEl = document.getElementById('sp-context');
     if (ctxEl) localStorage.setItem(this.K_CONTEXT, ctxEl.value.trim());
@@ -2379,7 +2396,7 @@ TESTO:
 
   /* ── CHAT LIBERA (modalità Dialoga) ─────────────────────────────── */
 
-  openChat() {
+    openChat() {
     if (!this.selText) { this.msg('Seleziona prima del testo su cui dialogare', 'warn'); return; }
     if (!_gasOk() || !this.gas) {
       this.showModal('Server GAS non configurato', `
@@ -2413,6 +2430,25 @@ TESTO:
                   || 'groq|llama-3.3-70b-versatile';
     this._applyChatModelKey(modelKey);
 
+    // --- NUOVO: Legge il prompt pre-chat e lo inietta come primo messaggio ---
+    const prechatPrompt = localStorage.getItem('scr3:prechat_prompt') || '';
+    if (prechatPrompt.trim()) {
+      // Aggiunge il messaggio dell'assistente alla cronologia visiva e interna
+      this._appendChatBubble('assistant', prechatPrompt);
+      this.chatHistory.push({ role: 'assistant', content: prechatPrompt });
+      // Aggiunge anche allo scambio salvato (opzionale, per coerenza)
+      this.chatSession.exchanges.push({
+        ts:                new Date().toISOString(),
+        user:              '[inizializzazione]',
+        assistant:         prechatPrompt,
+        tokens_prompt:     0,
+        tokens_completion: 0,
+        tokens_total:      0,
+        tokens_cumulative: 0,
+      });
+    }
+    // ----------------------------------------------------------------
+
     // UI: sostituisce il pannello normale con la chat
     $('ai-context-label').textContent = '💬 Chat libera';
     $('ai-context-text').textContent  = this.selText;
@@ -2423,7 +2459,6 @@ TESTO:
     $('chat-history').innerHTML       = '';
     this._updateTokenBadge();
 
-    // Apre il foglio se non è già aperto
     $('ai-overlay').classList.add('open');
     $('ai-sheet').classList.add('open');
 
@@ -2471,12 +2506,8 @@ TESTO:
     this.chatTypingEl = this._appendTypingIndicator();
 
     // Costruisce system prompt (identico agli altri provider + testo contestuale)
-    const sysp    = localStorage.getItem(this.K_SYSPROMPT) || this.DEF_PROMPT;
-    const context = localStorage.getItem(this.K_CONTEXT)   || '';
-    const fullSystem = (context
-      ? `=== CONTESTO DEL PROGETTO ===\n${context}\n\n=== ISTRUZIONI EDITOR ===\n${sysp}`
-      : sysp)
-      + `\n\n=== TESTO IN ANALISI (il testo su cui stai dialogando) ===\n"${this.chatSession.contextText}"`;
+    // Nessun prompt di sistema né contesto progetto: solo il testo in analisi
+    const fullSystem = `=== TESTO IN ANALISI (il testo su cui stai dialogando) ===\n"${this.chatSession.contextText}"`;
 
     const { provider, model } = this.chatSession;
     const temp = parseFloat(localStorage.getItem(this.K_TEMP) || '60') / 100;
