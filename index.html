@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM V18.3 — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM V19 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -618,7 +618,7 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V18.3 (Ert)</span></span>
+<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V19.0 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -1055,6 +1055,9 @@ const App = {
   driveAutoTimer: null,
   _groqEditorVersion:    '',
   _mistralEditorVersion: '',
+  _driveFilesCache:      [],
+  _driveContentSearchTerm: '',
+  _driveCheckedFiles:     {},
   // flag per logging singolo per sessione AI
   _loggedGroq:    false,
   _loggedMistral: false,
@@ -2322,14 +2325,32 @@ TESTO:
         return;
       }
       files.sort((a,b) => new Date(b.modified) - new Date(a.modified));
-      const bodyHtml = files.slice(0,30).map(f => `
-        <div onclick="App._driveLoad('${f.id.replace(/'/g, '')}')" style="padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer">
-          <div style="font-size:14px;color:var(--accent)">${f.name.replace(/</g,'&lt;')}</div>
-          <div style="font-size:11px;color:var(--faint);font-family:monospace;margin-top:2px">${new Date(f.modified).toLocaleString('it')} · ${(f.size/1024).toFixed(1)} KB</div>
+      this._driveFilesCache = files.slice(0,30);
+      const filterHtml = `
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+          <input type="text" id="drive-name-filter" placeholder="Filtra per nome..." style="flex:1;background:var(--ed-bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:14px">
+          <input type="text" id="drive-date-filter" placeholder="Filtra per data (es. 2024, gen, 12/04)" style="flex:1;background:var(--ed-bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:14px">
         </div>
-      `).join('');
-      this.showModal('☁ Carica da Drive', bodyHtml,
+        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+          <input type="text" id="drive-content-search" placeholder="Cerca nel contenuto..." style="flex:1;background:var(--ed-bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:14px">
+          <button onclick="App._searchDriveContent()" style="padding:6px 12px;background:var(--accent2);border:1px solid var(--accent);color:var(--accent);border-radius:4px;cursor:pointer;font-size:13px;white-space:nowrap">🔍 Cerca</button>
+        </div>
+        <div id="drive-file-list"></div>
+      `;
+      this.showModal('☁ Carica da Drive', filterHtml,
         [{ label: 'Chiudi', cb: () => this.closeModal() }]);
+      setTimeout(() => {
+        const nameFilter = document.getElementById('drive-name-filter');
+        const dateFilter = document.getElementById('drive-date-filter');
+        const contentSearch = document.getElementById('drive-content-search');
+        if (nameFilter) nameFilter.addEventListener('input', () => this._filterDriveList());
+        if (dateFilter) dateFilter.addEventListener('input', () => this._filterDriveList());
+        if (contentSearch) contentSearch.addEventListener('input', () => {
+          this._driveCheckedFiles = {};
+          this._filterDriveList();
+        });
+        this._filterDriveList();
+      }, 50);
     } catch(e) { this.msg('Errore di rete', 'err'); }
   },
 
@@ -2369,6 +2390,83 @@ TESTO:
     if (this.chatMode) { this.closeChat(); return; }
     $('ai-overlay').classList.remove('open');
     $('ai-sheet').classList.remove('open');
+  },
+
+  _searchDriveContent() {
+    this._driveCheckedFiles = {};
+    this._filterDriveList();
+  },
+
+  async _checkFileContent(fileId) {
+    const searchInput = document.getElementById('drive-content-search');
+    const term = searchInput ? searchInput.value.trim() : '';
+    if (!term || !fileId) return;
+    // Segna come 'loading' e ri-renderizza
+    this._driveCheckedFiles[fileId] = 'loading';
+    this._filterDriveList();
+    try {
+      const res = await this.gas.scriptorium_load(fileId);
+      if (!res.ok) throw new Error(res.error || 'Errore');
+      const content = (res.data.content || '').toLowerCase();
+      this._driveCheckedFiles[fileId] = content.includes(term.toLowerCase()) ? 'found' : 'notfound';
+    } catch(e) {
+      this._driveCheckedFiles[fileId] = 'error';
+      this.msg('Errore: ' + (e.message || ''), 'err');
+    }
+    this._filterDriveList();
+  },
+
+  _filterDriveList() {
+    const nameFilter = document.getElementById('drive-name-filter');
+    const dateFilter = document.getElementById('drive-date-filter');
+    if (!nameFilter || !dateFilter) return;
+    const nameQuery = nameFilter.value.trim().toLowerCase();
+    const dateQuery = dateFilter.value.trim().toLowerCase();
+    const searchEl = document.getElementById('drive-content-search');
+    const searchTerm = searchEl ? searchEl.value.trim() : '';
+    const filtered = this._driveFilesCache.filter(f => {
+      const nameMatch = !nameQuery || f.name.toLowerCase().includes(nameQuery);
+      const dateStr = new Date(f.modified).toLocaleString('it').toLowerCase();
+      const dateMatch = !dateQuery || dateStr.includes(dateQuery);
+      return nameMatch && dateMatch;
+    });
+    const listDiv = document.getElementById('drive-file-list');
+    if (!listDiv) return;
+    if (filtered.length === 0) {
+      listDiv.innerHTML = '<div style="padding:20px;text-align:center;color:var(--faint)">Nessun file corrisponde ai filtri</div>';
+      return;
+    }
+    listDiv.innerHTML = filtered.map(f => {
+      const id = f.id.replace(/'/g, '');
+      const name = f.name.replace(/</g, '&lt;');
+      const meta = new Date(f.modified).toLocaleString('it') + ' · ' + (f.size/1024).toFixed(1) + ' KB';
+      if (!searchTerm) {
+        return `<div onclick="App._driveLoad('${id}')" style="padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer"><div style="font-size:14px;color:var(--accent)">${name}</div><div style="font-size:11px;color:var(--faint);font-family:monospace;margin-top:2px">${meta}</div></div>`;
+      }
+      const state = this._driveCheckedFiles[f.id];
+      let bg = '', badge = '', onclick = '', cursor = 'pointer';
+      if (state === 'found') {
+        bg = 'background:rgba(90,184,122,.10);';
+        badge = '<span style="float:right;color:#5ab87a;font-size:11px;font-family:monospace">✓ trovato – clicca per aprire</span>';
+        onclick = `App._driveLoad('${id}')`;
+      } else if (state === 'notfound') {
+        bg = 'background:rgba(184,90,90,.08);opacity:.55;';
+        badge = '<span style="float:right;color:#b85a5a;font-size:11px;font-family:monospace">✗ assente</span>';
+        cursor = 'default';
+      } else if (state === 'loading') {
+        badge = '<span style="float:right;color:var(--dim);font-size:11px;font-family:monospace">⏳ controllo...</span>';
+        cursor = 'wait';
+      } else if (state === 'error') {
+        bg = 'background:rgba(184,90,90,.05);';
+        badge = '<span style="float:right;color:#b85a5a;font-size:11px;font-family:monospace">⚠ errore</span>';
+        onclick = `App._checkFileContent('${id}')`;
+      } else {
+        badge = '<span style="float:right;color:var(--dim);font-size:11px;font-family:monospace">🔍 clicca per cercare</span>';
+        onclick = `App._checkFileContent('${id}')`;
+      }
+      const click = onclick ? `onclick="${onclick}"` : '';
+      return `<div ${click} style="padding:9px 0;border-bottom:1px solid var(--border);cursor:${cursor};${bg}"><div style="font-size:14px;color:var(--accent)">${badge}${name}</div><div style="font-size:11px;color:var(--faint);font-family:monospace;margin-top:2px">${meta}</div></div>`;
+    }).join('');
   },
 
   openSheet() {
