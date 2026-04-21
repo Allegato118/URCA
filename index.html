@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM V19 — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM V20 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -74,7 +74,10 @@ body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text)
   gap: 2px; flex-shrink: 0; user-select: none; -webkit-user-select: none;
 }
 #logo { font-size: 11px; letter-spacing: .3em; text-transform: uppercase; color: var(--accent);
-  white-space: nowrap; margin-right: 8px; }
+  white-space: nowrap; margin-right: 8px; cursor: pointer; border-radius: var(--r);
+  border: 1px solid transparent; padding: 3px 6px; transition: all var(--t); }
+#logo.autosave-on  { color: var(--ok);     border-color: var(--ok);     background: rgba(90,184,122,.12); }
+#logo.autosave-off { color: var(--danger); border-color: var(--danger);  background: rgba(184,90,90,.12); }
 .sp { flex: 1; }
 .vsep { width: 1px; height: 20px; background: var(--border); margin: 0 3px; flex-shrink: 0; }
 
@@ -618,7 +621,7 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V19.0 (Ert)</span></span>
+<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V20.0 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -1131,6 +1134,7 @@ const App = {
 
     const autoOn = localStorage.getItem(this.K_AUTOSAVE_DR) === 'on';
     if (autoOn) this._setupDriveAutoSave(true);
+    this._updateLogoState();
 
     this._pushUndo(this.text);
 
@@ -1241,6 +1245,7 @@ const App = {
     const autoOn = asDrEl ? asDrEl.checked : false;
     localStorage.setItem(this.K_AUTOSAVE_DR, autoOn ? 'on' : 'off');
     this._setupDriveAutoSave(autoOn);
+    this._updateLogoState();
 
     let mask = 0;
     document.querySelectorAll('.rif-chk').forEach(cb => {
@@ -1289,6 +1294,32 @@ const App = {
     }
   },
 
+  toggleAutoSaveQuick() {
+    const current = localStorage.getItem(this.K_AUTOSAVE_DR) === 'on';
+    const newVal = !current;
+    if (newVal && !_gasOk()) {
+      this.msg('⚠ Configura GAS prima di attivare l\'autosalvataggio', 'err');
+      setTimeout(() => this.msg('—', ''), 3500);
+      return;
+    }
+    localStorage.setItem(this.K_AUTOSAVE_DR, newVal ? 'on' : 'off');
+    this._setupDriveAutoSave(newVal);
+    this._updateLogoState();
+    const el = document.getElementById('sp-autosave-drive');
+    if (el) el.checked = newVal;
+    this.msg(newVal ? '☁ autosalvataggio attivato' : '☁ autosalvataggio disattivato', newVal ? 'ok' : 'warn');
+    setTimeout(() => this.msg('—', ''), 2500);
+  },
+
+  _updateLogoState() {
+    const on = localStorage.getItem(this.K_AUTOSAVE_DR) === 'on';
+    const logo = document.getElementById('logo');
+    if (logo) {
+      logo.classList.toggle('autosave-on',  on);
+      logo.classList.toggle('autosave-off', !on);
+    }
+  },
+
   _detectDevice() {
     const ua = navigator.userAgent;
     if (/tablet|ipad|playbook|silk/i.test(ua)) return 'tablet';
@@ -1302,7 +1333,7 @@ const App = {
     const pad  = n => String(n).padStart(2,'0');
     const ts   = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
     const dev  = this._detectDevice();
-    const label = `${ts}_${dev}`;
+    const label = `${dev}_${ts}`;
     try {
       const res = await this.gas.scriptorium_save(this.text, label);
       if (res?.ok) {
@@ -1471,7 +1502,7 @@ const App = {
         try {
           const d   = new Date();
           const ts  = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
-          const res = await this.gas.scriptorium_save(textToSave, `${ts}_X`);
+          const res = await this.gas.scriptorium_save(textToSave, `X_${ts}`);
           if (res?.ok) {
             this.msg(`☁ backup _X salvato su Drive`, 'ok');
           } else {
