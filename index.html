@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM V20 — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM V21 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -621,7 +621,7 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V20.0 (Ert)</span></span>
+<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V21.0 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -762,8 +762,9 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
       onkeydown="App.onSaveLblKey(event)">
     <button class="primary" onclick="App.saveSnapshot()">Salva</button>
   </div>
-  <div id="drive-row" style="padding:7px 9px;border-bottom:1px solid var(--border);display:flex;gap:5px;flex-shrink:0">
+  <div id="drive-row" style="padding:7px 9px;border-bottom:1px solid var(--border);display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap">
     <button class="sm ai-btn" style="flex:1" onclick="App.exportToDrive()">☁ Salva Drive</button>
+    <button class="sm ai-btn" style="flex:1;font-size:11px" onclick="App.exportToDriveNamed()">☁ Salva con nome…</button>
     <button class="sm" style="flex:1" onclick="App.loadFromDrive()">☁ Carica Drive</button>
   </div>
   <div id="vlist"></div>
@@ -1061,6 +1062,7 @@ const App = {
   _driveFilesCache:      [],
   _driveContentSearchTerm: '',
   _driveCheckedFiles:     {},
+  _lastDriveBase:         '',
   // flag per logging singolo per sessione AI
   _loggedGroq:    false,
   _loggedMistral: false,
@@ -2342,6 +2344,55 @@ TESTO:
     }
   },
 
+  _driveNamedBase() {
+    const lbl = $('save-lbl').value.trim() || this._autoLabel();
+    return lbl.replace(/[/\\:*?"<>|]/g, '_').replace(/_stabile$|_ultima$/i, '');
+  },
+
+  async exportToDriveNamed() {
+    if (!this.text.trim()) { this.msg('nulla da esportare', 'warn'); return; }
+    if (!_gasOk() || !this.gas) { this.msg('GAS non configurato — apri ⚙', 'err'); return; }
+    const base = this._driveNamedBase();
+    this.showModal('☁ Salva su Drive con nome', `
+      <p style="color:var(--dim);font-size:13px;margin-bottom:6px">
+        Il nome diventa l'etichetta del file su Drive. Modificalo liberamente.
+      </p>
+      <input type="text" id="drive-save-name"
+        value="${base.replace(/"/g, '&quot;')}"
+        style="width:100%;box-sizing:border-box;background:var(--ed-bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:4px;font-size:14px;margin-bottom:8px"
+        maxlength="120" placeholder="Nome file…"
+        onkeydown="if(event.key==='Enter')App.modalCb(0)">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+        <button onclick="document.getElementById('drive-save-name').value=App._driveNamedBase()+'_stabile'"
+          style="font-size:11px;padding:4px 10px;background:var(--accent2);border:1px solid var(--ai);color:var(--ai);border-radius:4px;cursor:pointer">📌 _stabile</button>
+        <button onclick="document.getElementById('drive-save-name').value=App._driveNamedBase()+'_ultima'"
+          style="font-size:11px;padding:4px 10px;background:var(--accent2);border:1px solid var(--ai);color:var(--ai);border-radius:4px;cursor:pointer">🔗 _ultima</button>
+      </div>
+    `, [
+      { label: '☁ Salva', primary: true, cb: async () => {
+        const nameEl = document.getElementById('drive-save-name');
+        const label  = nameEl ? nameEl.value.trim() : base;
+        if (!label) { this.msg('Inserisci un nome', 'warn'); return; }
+        this.closeModal();
+        this.msg('Caricamento su Drive…', 'ai');
+        try {
+          const res = await this.gas.scriptorium_save(this.text, label);
+          if (res.ok) {
+            this._lastDriveBase = label.replace(/_stabile$|_ultima$/i, '');
+            this.msg(`"${res.data.filename}" → Drive ✓`, 'ok');
+            setTimeout(() => this.msg('—', ''), 4000);
+          } else {
+            this.msg('Errore Drive: ' + (res.error || '?'), 'err');
+          }
+        } catch(e) {
+          this.msg('Errore di rete Drive', 'err');
+        }
+      }},
+      { label: 'Annulla', cb: () => this.closeModal() },
+    ]);
+    setTimeout(() => { const el = document.getElementById('drive-save-name'); if (el) { el.focus(); el.select(); } }, 50);
+  },
+
   async loadFromDrive() {
     if (!_gasOk() || !this.gas) { this.msg('GAS non configurato — apri ⚙', 'err'); return; }
     this.msg('Caricamento lista Drive…', 'ai');
@@ -2389,9 +2440,10 @@ TESTO:
     this.showModal('☁ Google Drive', `
       <p style="color:var(--dim);margin-bottom:4px;font-size:14px">Cosa vuoi fare?</p>
     `, [
-      { label: '☁ Salva su Drive',  cb: () => { this.closeModal(); this.exportToDrive(); } },
-      { label: '☁ Carica da Drive', cb: () => { this.closeModal(); this.loadFromDrive(); } },
-      { label: 'Annulla',           cb: () => this.closeModal() },
+      { label: '☁ Salva su Drive',      cb: () => { this.closeModal(); this.exportToDrive(); } },
+      { label: '☁ Salva con nome…',     primary: true, cb: () => { this.closeModal(); this.exportToDriveNamed(); } },
+      { label: '☁ Carica da Drive',     cb: () => { this.closeModal(); this.loadFromDrive(); } },
+      { label: 'Annulla',               cb: () => this.closeModal() },
     ]);
   },
 
@@ -2407,6 +2459,7 @@ TESTO:
       this._pushUndo(this.text);
       this.persist(); this.updateStats(); this.closeDrawer();
       this._updateMarkStrip();
+      this._lastDriveBase = (res.data.filename || '').replace(/_stabile\.txt$|_ultima\.txt$|\.txt$/i, '');
       this.msg(`caricato: ${res.data.filename}`, 'ok');
       setTimeout(() => this.msg('—', ''), 3000);
     } catch(e) { this.msg('Errore di rete', 'err'); }
@@ -2467,12 +2520,22 @@ TESTO:
       listDiv.innerHTML = '<div style="padding:20px;text-align:center;color:var(--faint)">Nessun file corrisponde ai filtri</div>';
       return;
     }
-    listDiv.innerHTML = filtered.map(f => {
-      const id = f.id.replace(/'/g, '');
+    const _isStd    = n => /_stabile\.txt$|_ultima\.txt$/i.test(n);
+    const base      = (this._lastDriveBase || '').toLowerCase();
+    const _isCurrStd = f => base && (
+      f.name.toLowerCase() === base + '_stabile.txt' ||
+      f.name.toLowerCase() === base + '_ultima.txt'
+    );
+    const currStd  = filtered.filter(f => _isCurrStd(f));
+    const otherStd = filtered.filter(f => _isStd(f.name) && !_isCurrStd(f));
+    const rest     = filtered.filter(f => !_isStd(f.name));
+
+    const _renderRow = (f, extraStyle = '') => {
+      const id   = f.id.replace(/'/g, '');
       const name = f.name.replace(/</g, '&lt;');
       const meta = new Date(f.modified).toLocaleString('it') + ' · ' + (f.size/1024).toFixed(1) + ' KB';
       if (!searchTerm) {
-        return `<div onclick="App._driveLoad('${id}')" style="padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer"><div style="font-size:14px;color:var(--accent)">${name}</div><div style="font-size:11px;color:var(--faint);font-family:monospace;margin-top:2px">${meta}</div></div>`;
+        return `<div onclick="App._driveLoad('${id}')" style="padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer${extraStyle}"><div style="font-size:14px;color:var(--accent)">${name}</div><div style="font-size:11px;color:var(--faint);font-family:monospace;margin-top:2px">${meta}</div></div>`;
       }
       const state = this._driveCheckedFiles[f.id];
       let bg = '', badge = '', onclick = '', cursor = 'pointer';
@@ -2496,8 +2559,23 @@ TESTO:
         onclick = `App._checkFileContent('${id}')`;
       }
       const click = onclick ? `onclick="${onclick}"` : '';
-      return `<div ${click} style="padding:9px 0;border-bottom:1px solid var(--border);cursor:${cursor};${bg}"><div style="font-size:14px;color:var(--accent)">${badge}${name}</div><div style="font-size:11px;color:var(--faint);font-family:monospace;margin-top:2px">${meta}</div></div>`;
-    }).join('');
+      return `<div ${click} style="padding:9px 0;border-bottom:1px solid var(--border);cursor:${cursor};${bg}${extraStyle}"><div style="font-size:14px;color:var(--accent)">${badge}${name}</div><div style="font-size:11px;color:var(--faint);font-family:monospace;margin-top:2px">${meta}</div></div>`;
+    };
+
+    let html = '';
+    if (currStd.length) {
+      html += `<div style="font-size:11px;font-family:monospace;color:var(--ai);padding:6px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;letter-spacing:.04em">📌 VERSIONI STANDARD — ${this._lastDriveBase}</div>`;
+      html += currStd.map(f => _renderRow(f, ';background:rgba(100,149,237,.13);border-left:3px solid var(--ai);padding-left:6px')).join('');
+    }
+    if (otherStd.length) {
+      html += '<div style="font-size:11px;font-family:monospace;color:var(--dim);padding:6px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px">📌 altre versioni standard</div>';
+      html += otherStd.map(f => _renderRow(f, ';background:rgba(100,149,237,.06);border-left:2px solid var(--border);padding-left:6px')).join('');
+    }
+    if (rest.length && (currStd.length || otherStd.length)) {
+      html += '<div style="font-size:11px;font-family:monospace;color:var(--dim);padding:8px 0 4px;margin-top:2px">— tutti i file —</div>';
+    }
+    html += rest.map(f => _renderRow(f)).join('');
+    listDiv.innerHTML = html;
   },
 
   openSheet() {
