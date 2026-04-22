@@ -192,7 +192,8 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
   caret-color: var(--accent); -webkit-appearance: none;
   word-break: break-word; white-space: pre-wrap;
 }
-#editor::selection { background: rgba(200,168,74,.22); }
+#editor::selection         { background: rgba(255,180,0,.55); color: inherit; }
+#editor:not(:focus)::selection { background: rgba(255,180,0,.35); color: inherit; }
 #editor::placeholder { color: var(--faint); font-style: italic; }
 
 #diff-view {
@@ -621,7 +622,7 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V21.0 (Ert)</span></span>
+<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V21.5 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -1713,7 +1714,7 @@ const App = {
     $('case-btn').classList.toggle('on', this.caseSensitive);
     this.onFindInput();
   },
-  onFindInput()   { this._calcMatches(); if (this.findMatches.length) { this.findIdx=0; this._sel(0); } },
+  onFindInput()   { this._calcMatches(); if (this.findMatches.length) { this.findIdx=0; this._sel(0, true); } },
   onFindKey(e)    { if (e.key==='Enter') { e.shiftKey?this.findPrev():this.findNext(); } if(e.key==='Escape') this.closeFind(); },
   onReplaceKey(e) { if (e.key==='Enter') this.replaceOne(); },
   onSaveLblKey(e) { if (e.key==='Enter') { e.preventDefault(); this.saveSnapshot(); } },
@@ -1729,17 +1730,24 @@ const App = {
     const n = this.findMatches.length;
     $('fi-count').textContent = n ? `${this.findIdx+1}/${n}` : '—';
   },
-  _sel(i) {
+  // keepSearch=true  → chiamata da onFindInput (si sta digitando): riporta focus al campo cerca
+  // keepSearch=false → chiamata da findNext/findPrev (navigazione): lascia focus sull'editor
+  _sel(i, keepSearch) {
     if (!this.findMatches.length) return;
     const m = this.findMatches[i], ta = $('editor');
-    ta.focus(); ta.setSelectionRange(m.s, m.e);
-    const lh = parseFloat(getComputedStyle(ta).lineHeight)||32;
-    const line = (this.text.slice(0,m.s).match(/\n/g)||[]).length;
-    ta.scrollTop = line*lh - ta.clientHeight/3;
+    ta.focus();
+    ta.setSelectionRange(m.s, m.e);
+    // Il browser ha appena scrollato la selezione nel viewport (posizione nativa, pixel-perfetta).
+    // Spostiamo lo scroll indietro del 20% dell'altezza visibile:
+    // la parola sale verso la cima senza ricalcolare righe o wrapping.
+    requestAnimationFrame(() => {
+      ta.scrollTop = Math.max(0, ta.scrollTop - ta.clientHeight * 0.20);
+    });
     $('fi-count').textContent = `${i+1}/${this.findMatches.length}`;
+    if (keepSearch) $('fi-query').focus();
   },
-  findNext() { this._calcMatches(); if(!this.findMatches.length) return; this.findIdx=(this.findIdx+1)%this.findMatches.length; this._sel(this.findIdx); },
-  findPrev() { this._calcMatches(); if(!this.findMatches.length) return; this.findIdx=(this.findIdx-1+this.findMatches.length)%this.findMatches.length; this._sel(this.findIdx); },
+  findNext() { this._calcMatches(); if(!this.findMatches.length) return; this.findIdx=(this.findIdx+1)%this.findMatches.length; this._sel(this.findIdx, false); },
+  findPrev() { this._calcMatches(); if(!this.findMatches.length) return; this.findIdx=(this.findIdx-1+this.findMatches.length)%this.findMatches.length; this._sel(this.findIdx, false); },
   replaceOne() {
     this._calcMatches(); if(!this.findMatches.length) return;
     const m=this.findMatches[this.findIdx], rep=$('fi-replace').value;
