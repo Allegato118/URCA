@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ╔══════════════════════════════════════════════════════════╗
-     ║  SCRIPTORIUM V21 — CONFIGURAZIONE                        ║
+     ║  SCRIPTORIUM V22 — CONFIGURAZIONE                        ║
      ║  Modifica SOLO questo blocco. Le 2 righe qui sotto.     ║
      ╠══════════════════════════════════════════════════════════╣
      ║  [1] URL del tuo GAS deployment                        ║
@@ -622,7 +622,7 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V21.5.0 (Ert)</span></span>
+<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V22.0 (Ert)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -998,7 +998,7 @@ class GasClient {
   }
   ping()                              { return this.call('system.ping'); }
   ai(messages, opts = {})             { return this.call('ai.complete', { messages, ...opts }); }
-  scriptorium_save(text, label)       { return this.call('scriptorium.save', { text, label }); }
+  scriptorium_save(text, label, filename) { return this.call('scriptorium.save', { text, label, ...(filename ? { filename } : {}) }); }
   scriptorium_list()                  { return this.call('scriptorium.list'); }
   scriptorium_load(fileId)            { return this.call('scriptorium.load', { fileId }); }
   scriptorium_log_riformula(original, variants, model) {
@@ -2406,7 +2406,7 @@ TESTO:
         this.closeModal();
         this.msg('Caricamento su Drive…', 'ai');
         try {
-          const res = await this.gas.scriptorium_save(this.text, label);
+          const res = await this.gas.scriptorium_save(this.text, label, label);
           if (res.ok) {
             this._lastDriveBase = label.replace(/_stabile$|_ultima$/i, '');
             this.msg(`"${res.data.filename}" → Drive ✓`, 'ok');
