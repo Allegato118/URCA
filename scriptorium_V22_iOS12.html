@@ -251,7 +251,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 /* ── DRAWER OVERLAY ──────────────────────── */
 .overlay {
-  display: none; position: fixed; inset: 0;
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,.62); z-index: 100;
 }
 .overlay.open { display: block; }
@@ -348,7 +348,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 /* ── AI BOTTOM SHEET ─────────────────────── */
 #ai-overlay {
-  display: none; position: fixed; inset: 0;
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,.55); z-index: 150;
 }
 #ai-overlay.open { display: block; }
@@ -450,7 +450,7 @@ button.sm-mono { font-size: 11px; padding: 3px 8px; min-height: 28px; font-famil
 
 /* ── MODAL ───────────────────────────────── */
 #modal-overlay {
-  display: none; position: fixed; inset: 0;
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,.72); z-index: 200;
   align-items: flex-end; justify-content: center; padding: 0;
 }
@@ -615,6 +615,23 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+<style>
+/* ── FALLBACK iOS 12 — gap in flex non supportato ── */
+#topbar > * + * { margin-left: 2px; }
+#bottombar > * + * { margin-left: 2px; }
+#ai-actions > * + * { margin-left: 6px; }
+#ai-foot > * + * { margin-left: 6px; }
+#sp-foot > * + * { margin-left: 7px; }
+#modal-footer > * + * { margin-left: 8px; }
+#fi-row > * + * { margin-left: 5px; }
+#rep-row > * + * { margin-left: 5px; }
+.vi-btns > * + * { margin-left: 4px; }
+#save-row > * + * { margin-left: 5px; }
+.mark-btn + .mark-btn { margin-left: 8px; }
+#chat-input-row > * + * { margin-left: 7px; }
+#chat-header > * + * { margin-left: 8px; }
+#sel-bar > * + * { margin-left: 6px; }
 </style>
 </head>
 <body>
@@ -622,7 +639,7 @@ button.chat-btn:hover { background: rgba(200,168,74,.18); }
 
 <!-- ── TOP BAR ── -->
 <div id="topbar">
-<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V22.1 (iOS12)</span></span>
+<span id="logo" onclick="App.toggleAutoSaveQuick()" title="Autosalvataggio Drive — clicca per attivare/disattivare" style="display:flex; flex-direction:column; line-height:1.2;">Script<span style="font-size:9px;">V22.2 (iOS12)</span></span>
   <div class="vsep tb-desk"></div>
 
   <!-- Desktop -->
@@ -1575,7 +1592,7 @@ const App = {
 
   resetAutoTimer() {
     clearTimeout(this.autoTimer);
-    this.autoTimer = setTimeout(() => this.doAuto(), 90_000);
+    this.autoTimer = setTimeout(() => this.doAuto(), 90000);
   },
   doAuto() {
     if (!this.text.trim()) { this.resetAutoTimer(); return; }
